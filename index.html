@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#05070b">
+    <title>Country Days</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/dexie@4/dist/dexie.min.js"></script>
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Personal travel log</p>
+          <h1>Country Days</h1>
+        </div>
+        <div class="topbar-actions" aria-label="Data actions">
+          <button class="button secondary" id="importButton" type="button">Import CSV</button>
+          <button class="button secondary" id="exportButton" type="button">Export CSV</button>
+          <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
+        </div>
+      </header>
+
+      <main class="app-layout">
+        <aside class="entry-panel" aria-labelledby="formTitle">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Stay input</p>
+              <h2 id="formTitle">Add a stay</h2>
+            </div>
+            <button class="button ghost compact" id="cancelEditButton" type="button" hidden>Cancel</button>
+          </div>
+
+          <form id="stayForm" novalidate>
+            <input id="stayId" type="hidden">
+
+            <label class="field">
+              <span>Country</span>
+              <input id="countryInput" name="country" type="text" list="countryList" autocomplete="off" required placeholder="Japan">
+              <datalist id="countryList"></datalist>
+            </label>
+
+            <div class="date-grid">
+              <label class="field">
+                <span>Start day</span>
+                <input id="startDateInput" name="startDate" type="date" required>
+              </label>
+
+              <label class="field">
+                <span>End date</span>
+                <input id="endDateInput" name="endDate" type="date">
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Notes</span>
+              <textarea id="notesInput" name="notes" rows="4" placeholder="Optional context"></textarea>
+            </label>
+
+            <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
+
+            <button class="button primary full" id="submitButton" type="submit">Add stay</button>
+          </form>
+
+        </aside>
+
+        <section class="dashboard" aria-label="Country day dashboard">
+          <div class="stats-grid" id="statsGrid"></div>
+
+          <section class="split-grid">
+            <div class="analytics-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Countries</p>
+                  <h2>Days by country</h2>
+                </div>
+              </div>
+              <div class="bar-list" id="countryBreakdown"></div>
+            </div>
+
+            <div class="analytics-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Timeline</p>
+                  <h2>Yearly country-days</h2>
+                </div>
+              </div>
+              <div class="bar-list" id="yearBreakdown"></div>
+            </div>
+          </section>
+
+          <section class="table-panel" aria-labelledby="tableTitle">
+            <div class="panel-header table-heading">
+              <div>
+                <p class="eyebrow">Ledger</p>
+                <h2 id="tableTitle">Recorded stays</h2>
+              </div>
+              <div class="table-tools">
+                <label class="tool-field">
+                  <span>Search</span>
+                  <input id="searchInput" type="search" placeholder="Country or note">
+                </label>
+                <label class="tool-field">
+                  <span>Status</span>
+                  <select id="statusFilter">
+                    <option value="all">All</option>
+                    <option value="current">Current</option>
+                    <option value="past">Past</option>
+                    <option value="upcoming">Upcoming</option>
+                  </select>
+                </label>
+                <label class="tool-field">
+                  <span>Sort</span>
+                  <select id="sortSelect">
+                    <option value="newest">Newest start</option>
+                    <option value="oldest">Oldest start</option>
+                    <option value="country">Country</option>
+                    <option value="days">Most days</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="stay-list" id="staysTableBody"></div>
+            <div class="empty-state" id="emptyState" hidden>
+              <h3>No stays yet</h3>
+              <p>Add a stay manually or import a CSV with country, start_date, end_date, and notes columns.</p>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>
