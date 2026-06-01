@@ -1006,18 +1006,23 @@
       })
       .sort((a, b) => {
         if (state.sort === "oldest") {
-          return compareDates(a.startDate, b.startDate);
+          return compareDates(a.startDate, b.startDate)
+            || compareDates(sortEndDate(a), sortEndDate(b))
+            || compareCountries(a, b);
         }
 
         if (state.sort === "country") {
-          return a.country.localeCompare(b.country) || compareDates(b.startDate, a.startDate);
+          return compareCountries(a, b)
+            || compareNewestDates(a, b);
         }
 
         if (state.sort === "days") {
-          return daysForStay(b) - daysForStay(a);
+          return daysForStay(b) - daysForStay(a)
+            || compareNewestDates(a, b);
         }
 
-        return compareDates(b.startDate, a.startDate);
+        return compareNewestDates(a, b)
+          || compareCountries(a, b);
       });
   }
 
@@ -1397,6 +1402,24 @@
 
   function compareDates(a, b) {
     return dateOrdinal(a) - dateOrdinal(b);
+  }
+
+  function compareCountries(a, b) {
+    return a.country.localeCompare(b.country);
+  }
+
+  function compareNewestDates(a, b) {
+    return compareDates(b.startDate, a.startDate)
+      || compareDates(sortEndDate(b), sortEndDate(a));
+  }
+
+  function sortEndDate(stay) {
+    if (stay.endDate) {
+      return stay.endDate;
+    }
+
+    const today = todayIso();
+    return compareDates(stay.startDate, today) > 0 ? stay.startDate : today;
   }
 
   function dateOrdinal(value) {
