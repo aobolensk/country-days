@@ -599,10 +599,32 @@ select {
 }
 
 .route-line {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 1;
-  min-width: 38px;
+  min-width: 128px;
+  min-height: 24px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.route-line::before {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto;
   height: 1px;
   background: linear-gradient(90deg, var(--primary), var(--green));
+}
+
+.route-days {
+  position: relative;
+  z-index: 1;
+  padding: 0 8px;
+  background: var(--surface-raised);
 }
 
 .stay-meta {
@@ -809,6 +831,15 @@ select {
   .stay-card {
     grid-template-columns: 46px minmax(0, 1fr);
     align-items: start;
+  }
+
+  .stay-route {
+    flex-wrap: wrap;
+  }
+
+  .route-line {
+    flex-basis: 100%;
+    order: 3;
   }
 
   .stay-marker {

@@ -1,7 +1,7 @@
 {
   "name": "Country Days",
   "short_name": "Country Days",
-  "description": "Track stays by country with country-day statistics, CSV import, and CSV export.",
+  "description": "Track stays by country with day statistics, CSV import, and CSV export.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

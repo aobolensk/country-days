@@ -820,7 +820,7 @@
     const stats = buildStats(state.stays);
     const cards = [
       {
-        label: "Country-days",
+        label: "Days",
         value: formatNumber(stats.totalDays),
         detail: `${formatNumber(stats.completedDays)} completed, ${formatNumber(stats.activeDays)} current`
       },
@@ -1094,16 +1094,17 @@
 
     const line = document.createElement("span");
     line.className = "route-line";
-    line.setAttribute("aria-hidden", "true");
+
+    const days = document.createElement("span");
+    days.className = "route-days";
+    days.textContent = `${formatNumber(daysForStay(stay))} days`;
+    line.appendChild(days);
 
     const end = document.createElement("span");
     end.textContent = stay.endDate ? formatDate(stay.endDate) : "Ongoing";
 
     const meta = document.createElement("div");
     meta.className = "stay-meta";
-
-    const days = document.createElement("span");
-    days.textContent = `${formatNumber(daysForStay(stay))} country-days`;
 
     const notes = document.createElement("span");
     notes.textContent = stay.notes || "";
@@ -1130,11 +1131,13 @@
 
     top.append(country, pill);
     route.append(start, line, end);
-    meta.appendChild(days);
     if (stay.notes) {
       meta.appendChild(notes);
     }
-    main.append(top, route, meta);
+    main.append(top, route);
+    if (stay.notes) {
+      main.appendChild(meta);
+    }
     row.append(marker, main, actions);
     return row;
   }
@@ -1209,7 +1212,7 @@
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `country-days-${todayIso()}.csv`;
+    anchor.download = `days-${todayIso()}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
