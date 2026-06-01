@@ -657,8 +657,17 @@
       return;
     }
 
-    const now = new Date().toISOString();
     const id = Number(els.stayId.value);
+    const overlapWarnings = findOverlapWarnings(record, id);
+    if (overlapWarnings.length) {
+      const confirmed = window.confirm(buildOverlapWarningMessage(overlapWarnings));
+      if (!confirmed) {
+        setFormMessage("Stay not saved. Adjust the dates or confirm the warning if the overlap is intentional.");
+        return;
+      }
+    }
+
+    const now = new Date().toISOString();
 
     try {
       if (id) {
@@ -710,6 +719,62 @@
     }
 
     return "";
+  }
+
+  function findOverlapWarnings(record, currentId) {
+    return state.stays
+      .filter((stay) => stay.id !== currentId)
+      .map((stay) => ({
+        stay,
+        days: overlappingDays(record, stay)
+      }))
+      .filter((overlap) => overlap.days > 1)
+      .sort((a, b) => {
+        if (a.days !== b.days) {
+          return b.days - a.days;
+        }
+
+        return compareDates(a.stay.startDate, b.stay.startDate);
+      });
+  }
+
+  function overlappingDays(record, stay) {
+    const overlapStart = Math.max(dateOrdinal(record.startDate), dateOrdinal(stay.startDate));
+    const overlapEnd = Math.min(endOrdinal(record), endOrdinal(stay));
+
+    if (overlapEnd < overlapStart) {
+      return 0;
+    }
+
+    if (!Number.isFinite(overlapEnd)) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    return overlapEnd - overlapStart + 1;
+  }
+
+  function endOrdinal(record) {
+    return record.endDate ? dateOrdinal(record.endDate) : Number.POSITIVE_INFINITY;
+  }
+
+  function buildOverlapWarningMessage(overlaps) {
+    const shown = overlaps.slice(0, 3).map((overlap) => {
+      const duration = Number.isFinite(overlap.days)
+        ? `${formatNumber(overlap.days)} day${overlap.days === 1 ? "" : "s"} overlap`
+        : "open-ended overlap";
+      return `- ${countryLabel(overlap.stay.country)}, ${formatDateRange(overlap.stay)} (${duration})`;
+    });
+    const extra = overlaps.length > shown.length
+      ? `\n- ${formatNumber(overlaps.length - shown.length)} more overlapping stay${overlaps.length - shown.length === 1 ? "" : "s"}`
+      : "";
+
+    return [
+      "This stay overlaps an existing stay by more than one day, so totals may double-count days.",
+      "",
+      shown.join("\n") + extra,
+      "",
+      "Save anyway?"
+    ].join("\n");
   }
 
   function resetForm() {
@@ -1354,6 +1419,10 @@
 
     const [, year, month, day] = value.match(DATE_RE);
     return `${year}-${month}-${day}`;
+  }
+
+  function formatDateRange(record) {
+    return `${formatDate(record.startDate)} to ${record.endDate ? formatDate(record.endDate) : "Ongoing"}`;
   }
 
   function formatNumber(value) {
