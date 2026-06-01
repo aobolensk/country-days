@@ -549,6 +549,8 @@
 
   const state = {
     stays: [],
+    calendarOpen: false,
+    calendarMonth: todayIso().slice(0, 7),
     search: "",
     status: "all",
     sort: "newest",
@@ -600,6 +602,14 @@
     els.cancelEditButton = document.getElementById("cancelEditButton");
     els.countryList = document.getElementById("countryList");
     els.statsGrid = document.getElementById("statsGrid");
+    els.calendarToggleButton = document.getElementById("calendarToggleButton");
+    els.calendarPanel = document.getElementById("calendarPanel");
+    els.calendarGrid = document.getElementById("calendarGrid");
+    els.calendarMonthLabel = document.getElementById("calendarMonthLabel");
+    els.calendarSummary = document.getElementById("calendarSummary");
+    els.prevMonthButton = document.getElementById("prevMonthButton");
+    els.todayMonthButton = document.getElementById("todayMonthButton");
+    els.nextMonthButton = document.getElementById("nextMonthButton");
     els.countryBreakdown = document.getElementById("countryBreakdown");
     els.yearBreakdown = document.getElementById("yearBreakdown");
     els.tableBody = document.getElementById("staysTableBody");
@@ -619,6 +629,13 @@
     els.importButton.addEventListener("click", () => els.csvFileInput.click());
     els.exportButton.addEventListener("click", exportCsv);
     els.csvFileInput.addEventListener("change", importCsv);
+    els.calendarToggleButton.addEventListener("click", toggleCalendar);
+    els.prevMonthButton.addEventListener("click", () => moveCalendarMonth(-1));
+    els.todayMonthButton.addEventListener("click", () => {
+      state.calendarMonth = todayIso().slice(0, 7);
+      renderCalendar();
+    });
+    els.nextMonthButton.addEventListener("click", () => moveCalendarMonth(1));
 
     els.searchInput.addEventListener("input", (event) => {
       state.search = event.target.value.trim().toLowerCase();
@@ -793,6 +810,8 @@
 
   function render() {
     renderStats();
+    renderCalendarVisibility();
+    renderCalendar();
     renderBreakdowns();
     renderTable();
   }
@@ -895,6 +914,131 @@
     });
 
     container.appendChild(fragment);
+  }
+
+  function moveCalendarMonth(offset) {
+    state.calendarMonth = addMonths(state.calendarMonth, offset);
+    renderCalendar();
+  }
+
+  function toggleCalendar() {
+    state.calendarOpen = !state.calendarOpen;
+    renderCalendarVisibility();
+    renderCalendar();
+  }
+
+  function renderCalendarVisibility() {
+    els.calendarPanel.hidden = !state.calendarOpen;
+    els.calendarToggleButton.textContent = state.calendarOpen ? "Hide calendar" : "Show calendar";
+    els.calendarToggleButton.setAttribute("aria-expanded", String(state.calendarOpen));
+  }
+
+  function renderCalendar() {
+    if (!state.calendarOpen) {
+      els.calendarGrid.replaceChildren();
+      els.calendarMonthLabel.textContent = "";
+      els.calendarSummary.textContent = "";
+      return;
+    }
+
+    const days = buildCalendarDays(state.calendarMonth, state.stays);
+    const fragment = document.createDocumentFragment();
+    let flaggedDays = 0;
+    const flaggedCountries = new Set();
+
+    els.calendarMonthLabel.textContent = formatMonthLabel(state.calendarMonth);
+
+    days.forEach((day) => {
+      if (day.inCurrentMonth && day.countries.length) {
+        flaggedDays += 1;
+        day.countries.forEach((country) => flaggedCountries.add(country));
+      }
+      fragment.appendChild(renderCalendarDay(day));
+    });
+
+    els.calendarGrid.replaceChildren(fragment);
+
+    if (!flaggedDays) {
+      els.calendarSummary.textContent = `No flags in ${els.calendarMonthLabel.textContent}.`;
+      return;
+    }
+
+    els.calendarSummary.textContent = `${formatNumber(flaggedDays)} flagged day${flaggedDays === 1 ? "" : "s"} from ${formatNumber(flaggedCountries.size)} place${flaggedCountries.size === 1 ? "" : "s"}.`;
+  }
+
+  function renderCalendarDay(day) {
+    const cell = document.createElement("article");
+    cell.className = "calendar-day";
+    if (!day.inCurrentMonth) {
+      cell.classList.add("outside-month");
+    }
+    if (day.iso === todayIso()) {
+      cell.classList.add("today");
+    }
+    if (day.countries.length) {
+      cell.classList.add("has-stay");
+    }
+
+    const number = document.createElement("span");
+    number.className = "calendar-day-number";
+    number.textContent = String(Number(day.iso.slice(8, 10)));
+
+    const flags = document.createElement("div");
+    flags.className = "calendar-flags";
+
+    day.countries.slice(0, 3).forEach((country) => {
+      const flag = document.createElement("span");
+      flag.className = "calendar-flag";
+      flag.textContent = countryFlag(country) || countryInitials(country);
+      flag.title = country;
+      flag.setAttribute("aria-label", country);
+      flags.appendChild(flag);
+    });
+
+    if (day.countries.length > 3) {
+      const more = document.createElement("span");
+      more.className = "calendar-more";
+      more.textContent = `+${day.countries.length - 3}`;
+      flags.appendChild(more);
+    }
+
+    const label = day.countries.length
+      ? `${formatDate(day.iso)}: ${day.countries.map(countryLabel).join(", ")}`
+      : `${formatDate(day.iso)}: no country logged`;
+    cell.setAttribute("aria-label", label);
+    cell.title = label;
+    cell.append(number, flags);
+    return cell;
+  }
+
+  function buildCalendarDays(month, stays) {
+    const monthStart = `${month}-01`;
+    const monthStartOrdinal = dateOrdinal(monthStart);
+    const firstWeekday = new Date(monthStartOrdinal * MS_PER_DAY).getUTCDay();
+    const leadingDays = (firstWeekday + 6) % 7;
+    const gridStart = monthStartOrdinal - leadingDays;
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const ordinal = gridStart + index;
+      const iso = isoFromOrdinal(ordinal);
+      return {
+        iso,
+        inCurrentMonth: iso.slice(0, 7) === month,
+        countries: countriesForDate(stays, ordinal)
+      };
+    });
+  }
+
+  function countriesForDate(stays, ordinal) {
+    const countries = new Set();
+    stays.forEach((stay) => {
+      const start = dateOrdinal(stay.startDate);
+      const end = stay.endDate ? dateOrdinal(stay.endDate) : Number.POSITIVE_INFINITY;
+      if (ordinal >= start && ordinal <= end) {
+        countries.add(stay.country);
+      }
+    });
+    return [...countries].sort((a, b) => a.localeCompare(b));
   }
 
   function renderTable() {
@@ -1422,9 +1566,25 @@
     return compareDates(stay.startDate, today) > 0 ? stay.startDate : today;
   }
 
+  function addMonths(month, offset) {
+    const [year, monthNumber] = month.split("-").map(Number);
+    const date = new Date(Date.UTC(year, monthNumber - 1 + offset, 1));
+    const nextYear = date.getUTCFullYear();
+    const nextMonth = String(date.getUTCMonth() + 1).padStart(2, "0");
+    return `${nextYear}-${nextMonth}`;
+  }
+
   function dateOrdinal(value) {
     const [, year, month, day] = value.match(DATE_RE);
     return Date.UTC(Number(year), Number(month) - 1, Number(day)) / MS_PER_DAY;
+  }
+
+  function isoFromOrdinal(ordinal) {
+    const date = new Date(ordinal * MS_PER_DAY);
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   function todayIso() {
@@ -1446,6 +1606,15 @@
 
   function formatDateRange(record) {
     return `${formatDate(record.startDate)} to ${record.endDate ? formatDate(record.endDate) : "Ongoing"}`;
+  }
+
+  function formatMonthLabel(month) {
+    const [year, monthNumber] = month.split("-").map(Number);
+    return new Intl.DateTimeFormat(undefined, {
+      month: "long",
+      timeZone: "UTC",
+      year: "numeric"
+    }).format(new Date(Date.UTC(year, monthNumber - 1, 1)));
   }
 
   function formatNumber(value) {

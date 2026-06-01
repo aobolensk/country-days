@@ -1,4 +1,4 @@
-const CACHE_NAME = "country-days-v7";
+const CACHE_NAME = "country-days-v8";
 const CORE_ASSETS = [
   "./",
   "./index.html",

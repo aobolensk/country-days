@@ -71,6 +71,36 @@
         <section class="dashboard" aria-label="Country day dashboard">
           <div class="stats-grid" id="statsGrid"></div>
 
+          <div class="calendar-toggle-row">
+            <button class="button secondary calendar-toggle" id="calendarToggleButton" type="button" aria-expanded="false" aria-controls="calendarPanel">Show calendar</button>
+          </div>
+
+          <section class="calendar-panel" id="calendarPanel" aria-labelledby="calendarTitle" hidden>
+            <div class="panel-header calendar-heading">
+              <div>
+                <p class="eyebrow">Calendar</p>
+                <h2 id="calendarTitle">Daily flags</h2>
+              </div>
+              <div class="calendar-controls" aria-label="Calendar navigation">
+                <button class="button ghost compact" id="prevMonthButton" type="button">Prev</button>
+                <p class="calendar-month" id="calendarMonthLabel" aria-live="polite"></p>
+                <button class="button ghost compact" id="todayMonthButton" type="button">Today</button>
+                <button class="button ghost compact" id="nextMonthButton" type="button">Next</button>
+              </div>
+            </div>
+            <div class="calendar-weekdays" aria-hidden="true">
+              <span>Mon</span>
+              <span>Tue</span>
+              <span>Wed</span>
+              <span>Thu</span>
+              <span>Fri</span>
+              <span>Sat</span>
+              <span>Sun</span>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+            <p class="calendar-summary" id="calendarSummary"></p>
+          </section>
+
           <section class="split-grid">
             <div class="analytics-panel">
               <div class="panel-header">
