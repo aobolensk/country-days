@@ -1,6 +1,6 @@
 # Country Days Tracker
 
-A static browser app for tracking stays by country. It uses Vanilla JavaScript, Dexie.js, and IndexedDB for local persistent storage.
+A static [browser app](https://aobolensk.github.io/country-days/) for tracking stays by country. It uses Vanilla JavaScript, Dexie.js, and IndexedDB for local persistent storage.
 
 ## Features
 
