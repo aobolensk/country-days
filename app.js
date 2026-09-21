@@ -693,6 +693,7 @@
           updatedAt: now
         });
         showToast("Stay updated.");
+        resetForm();
       } else {
         await db.stays.add({
           ...record,
@@ -700,9 +701,9 @@
           updatedAt: now
         });
         showToast("Stay added.");
+        resetForm(suggestNextStartDate(record));
       }
 
-      resetForm();
       await loadStays();
     } catch (error) {
       setFormMessage(error.message || "Could not save the stay.");
@@ -794,13 +795,22 @@
     ].join("\n");
   }
 
-  function resetForm() {
+  function resetForm(suggestedStartDate = "") {
     els.form.reset();
     els.stayId.value = "";
+    els.startDateInput.value = suggestedStartDate;
     els.formTitle.textContent = "Add a stay";
     els.submitButton.textContent = "Add stay";
     els.cancelEditButton.hidden = true;
     setFormMessage("");
+  }
+
+  function suggestNextStartDate(record) {
+    if (!record.endDate) {
+      return "";
+    }
+
+    return record.endDate;
   }
 
   async function loadStays() {
