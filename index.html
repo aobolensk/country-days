@@ -38,10 +38,10 @@
           <form id="stayForm" novalidate>
             <input id="stayId" type="hidden">
 
-            <label class="field">
+            <label class="field country-field">
               <span>Country</span>
-              <input id="countryInput" name="country" type="text" list="countryList" autocomplete="off" required placeholder="Japan">
-              <datalist id="countryList"></datalist>
+              <input id="countryInput" name="country" type="text" autocomplete="off" required placeholder="Japan" aria-autocomplete="list" aria-controls="countrySuggestions" aria-expanded="false">
+              <div class="country-suggestions" id="countrySuggestions" role="listbox" hidden></div>
             </label>
 
             <div class="date-grid">

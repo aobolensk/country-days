@@ -203,11 +203,59 @@ button:disabled {
   margin-bottom: 13px;
 }
 
+.country-field {
+  position: relative;
+}
+
 .field span,
 .tool-field span {
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 760;
+}
+
+.country-suggestions {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% - 7px);
+  right: 0;
+  left: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}
+
+.country-suggestion {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  gap: 9px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 9px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.country-suggestion:hover,
+.country-suggestion:focus {
+  background: var(--surface-soft);
+  color: var(--primary-strong);
+  outline: none;
+}
+
+.country-suggestion-flag {
+  width: 1.5em;
+  flex: 0 0 1.5em;
+  font-size: 1.15rem;
+  line-height: 1;
+  text-align: center;
 }
 
 input,

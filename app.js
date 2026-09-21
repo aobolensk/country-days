@@ -565,7 +565,6 @@
 
   async function init() {
     cacheElements();
-    populateCountryList();
     bindEvents();
     registerServiceWorker();
 
@@ -596,11 +595,11 @@
     els.startDateInput = document.getElementById("startDateInput");
     els.endDateInput = document.getElementById("endDateInput");
     els.notesInput = document.getElementById("notesInput");
+    els.countrySuggestions = document.getElementById("countrySuggestions");
     els.formMessage = document.getElementById("formMessage");
     els.formTitle = document.getElementById("formTitle");
     els.submitButton = document.getElementById("submitButton");
     els.cancelEditButton = document.getElementById("cancelEditButton");
-    els.countryList = document.getElementById("countryList");
     els.statsGrid = document.getElementById("statsGrid");
     els.calendarToggleButton = document.getElementById("calendarToggleButton");
     els.calendarPanel = document.getElementById("calendarPanel");
@@ -626,6 +625,15 @@
   function bindEvents() {
     els.form.addEventListener("submit", handleSubmit);
     els.cancelEditButton.addEventListener("click", resetForm);
+    els.countryInput.addEventListener("input", renderCountrySuggestions);
+    els.countryInput.addEventListener("focus", renderCountrySuggestions);
+    els.countryInput.addEventListener("keydown", handleCountryKeydown);
+    els.countrySuggestions.addEventListener("keydown", handleCountryKeydown);
+    document.addEventListener("click", (event) => {
+      if (!els.countryInput.closest(".country-field").contains(event.target)) {
+        hideCountrySuggestions();
+      }
+    });
     els.importButton.addEventListener("click", () => els.csvFileInput.click());
     els.exportButton.addEventListener("click", exportCsv);
     els.csvFileInput.addEventListener("change", importCsv);
@@ -653,14 +661,59 @@
     });
   }
 
-  function populateCountryList() {
+  function renderCountrySuggestions() {
+    const query = normalizeCountryKey(els.countryInput.value);
+    const matches = PLACES.filter((country) => normalizeCountryKey(country).includes(query));
     const fragment = document.createDocumentFragment();
-    PLACES.forEach((country) => {
-      const option = document.createElement("option");
-      option.value = country;
+    matches.forEach((country) => {
+      const option = document.createElement("button");
+      option.className = "country-suggestion";
+      option.type = "button";
+      option.setAttribute("role", "option");
+
+      const flag = document.createElement("span");
+      flag.className = "country-suggestion-flag";
+      flag.textContent = countryFlag(country);
+      flag.setAttribute("aria-hidden", "true");
+
+      const name = document.createElement("span");
+      name.textContent = country;
+
+      option.append(flag, name);
+      option.addEventListener("click", () => {
+        els.countryInput.value = country;
+        els.countryInput.focus();
+        hideCountrySuggestions();
+      });
       fragment.appendChild(option);
     });
-    els.countryList.appendChild(fragment);
+
+    els.countrySuggestions.replaceChildren(fragment);
+    els.countrySuggestions.hidden = matches.length === 0;
+    els.countryInput.setAttribute("aria-expanded", String(matches.length > 0));
+  }
+
+  function handleCountryKeydown(event) {
+    const options = [...els.countrySuggestions.querySelectorAll(".country-suggestion")];
+    if (!options.length) {
+      return;
+    }
+
+    const currentIndex = options.indexOf(document.activeElement);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      options[Math.min(currentIndex + 1, options.length - 1)].focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      options[Math.max(currentIndex - 1, 0)].focus();
+    } else if (event.key === "Escape") {
+      hideCountrySuggestions();
+    }
+  }
+
+  function hideCountrySuggestions() {
+    els.countrySuggestions.hidden = true;
+    els.countryInput.setAttribute("aria-expanded", "false");
   }
 
   async function handleSubmit(event) {
@@ -799,6 +852,7 @@
     els.form.reset();
     els.stayId.value = "";
     els.startDateInput.value = suggestedStartDate;
+    hideCountrySuggestions();
     els.formTitle.textContent = "Add a stay";
     els.submitButton.textContent = "Add stay";
     els.cancelEditButton.hidden = true;
