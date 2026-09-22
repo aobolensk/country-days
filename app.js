@@ -1549,6 +1549,7 @@
   }
 
   function buildYearTotals(stays) {
+    const coveredDays = new Set();
     const totals = new Map();
 
     stays.forEach((stay) => {
@@ -1561,9 +1562,13 @@
       }
 
       for (let ordinal = start; ordinal <= end; ordinal += 1) {
-        const year = new Date(ordinal * MS_PER_DAY).getUTCFullYear();
-        totals.set(year, (totals.get(year) || 0) + 1);
+        coveredDays.add(ordinal);
       }
+    });
+
+    coveredDays.forEach((ordinal) => {
+      const year = new Date(ordinal * MS_PER_DAY).getUTCFullYear();
+      totals.set(year, (totals.get(year) || 0) + 1);
     });
 
     return [...totals.entries()]
