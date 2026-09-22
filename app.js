@@ -663,9 +663,21 @@
 
   function renderCountrySuggestions() {
     const query = normalizeCountryKey(els.countryInput.value);
-    const matches = PLACES.filter((country) => normalizeCountryKey(country).includes(query));
+    const visitedCountries = new Set(
+      state.stays
+        .filter((stay) => getStayStatus(stay) !== "upcoming")
+        .map((stay) => normalizeCountryKey(stay.country))
+    );
+    const matches = PLACES
+      .map((country) => ({
+        country,
+        visited: visitedCountries.has(normalizeCountryKey(country)),
+        match: matchCountrySuggestion(country, query)
+      }))
+      .filter((item) => item.match)
+      .sort(compareCountrySuggestions);
     const fragment = document.createDocumentFragment();
-    matches.forEach((country) => {
+    matches.forEach((item) => {
       const option = document.createElement("button");
       option.className = "country-suggestion";
       option.type = "button";
@@ -673,15 +685,15 @@
 
       const flag = document.createElement("span");
       flag.className = "country-suggestion-flag";
-      flag.textContent = countryFlag(country);
+      flag.textContent = countryFlag(item.country);
       flag.setAttribute("aria-hidden", "true");
 
       const name = document.createElement("span");
-      name.textContent = country;
+      appendHighlightedText(name, item.country, item.match.start, item.match.end);
 
       option.append(flag, name);
       option.addEventListener("click", () => {
-        els.countryInput.value = country;
+        els.countryInput.value = item.country;
         els.countryInput.focus();
         hideCountrySuggestions();
       });
@@ -691,6 +703,113 @@
     els.countrySuggestions.replaceChildren(fragment);
     els.countrySuggestions.hidden = matches.length === 0;
     els.countryInput.setAttribute("aria-expanded", String(matches.length > 0));
+  }
+
+  function matchCountrySuggestion(country, query) {
+    const name = normalizeCountryKey(country);
+    if (!query) {
+      return { rank: 4, distance: 0, start: -1, end: -1 };
+    }
+
+    if (name === query) {
+      return { rank: 0, distance: 0, start: 0, end: query.length };
+    }
+
+    const start = name.indexOf(query);
+    if (start === 0) {
+      return { rank: 1, distance: 0, start, end: start + query.length };
+    }
+
+    if (start > 0) {
+      return { rank: 2, distance: 0, start, end: start + query.length };
+    }
+
+    const fuzzy = findFuzzyCountryMatch(name, query);
+    if (!fuzzy) {
+      return null;
+    }
+
+    return {
+      rank: 3,
+      distance: fuzzy.distance,
+      start: fuzzy.start,
+      end: fuzzy.end
+    };
+  }
+
+  function compareCountrySuggestions(a, b) {
+    return a.match.rank - b.match.rank
+      || Number(b.visited) - Number(a.visited)
+      || a.match.distance - b.match.distance
+      || a.match.start - b.match.start
+      || a.country.localeCompare(b.country);
+  }
+
+  function findFuzzyCountryMatch(name, query) {
+    if (query.length < 3) {
+      return null;
+    }
+
+    const minLength = Math.max(1, query.length - 1);
+    const maxLength = Math.min(name.length, query.length + 1);
+    let best = null;
+
+    for (let start = 0; start <= name.length - minLength; start += 1) {
+      for (let length = minLength; length <= maxLength && start + length <= name.length; length += 1) {
+        const candidate = name.slice(start, start + length);
+        const distance = editDistance(query, candidate);
+        const isBetterMatch = !best
+          || distance < best.distance
+          || (distance === best.distance && start < best.start)
+          || (distance === best.distance && start === best.start && start + length > best.end);
+        if (isBetterMatch) {
+          best = { distance, start, end: start + length };
+        }
+      }
+    }
+
+    const maxDistance = Math.max(1, Math.floor(query.length / 4));
+    return best && best.distance <= maxDistance ? best : null;
+  }
+
+  function editDistance(a, b) {
+    const distances = Array.from({ length: a.length + 1 }, (_, row) => {
+      const values = Array.from({ length: b.length + 1 }, (_, column) => column);
+      values[0] = row;
+      return values;
+    });
+
+    for (let row = 1; row <= a.length; row += 1) {
+      for (let column = 1; column <= b.length; column += 1) {
+        const substitution = distances[row - 1][column - 1] + (a[row - 1] === b[column - 1] ? 0 : 1);
+        distances[row][column] = Math.min(
+          distances[row - 1][column] + 1,
+          distances[row][column - 1] + 1,
+          substitution
+        );
+
+        if (row > 1 && column > 1 && a[row - 1] === b[column - 2] && a[row - 2] === b[column - 1]) {
+          distances[row][column] = Math.min(distances[row][column], distances[row - 2][column - 2] + 1);
+        }
+      }
+    }
+
+    return distances[a.length][b.length];
+  }
+
+  function appendHighlightedText(container, text, start, end) {
+    if (start < 0 || end <= start) {
+      container.textContent = text;
+      return;
+    }
+
+    const mark = document.createElement("mark");
+    mark.textContent = text.slice(start, end);
+    container.append(
+      document.createTextNode(text.slice(0, start)),
+      mark,
+      document.createTextNode(text.slice(end))
+    );
   }
 
   function handleCountryKeydown(event) {

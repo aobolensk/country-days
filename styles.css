@@ -258,6 +258,13 @@ button:disabled {
   text-align: center;
 }
 
+.country-suggestion mark {
+  border-radius: 3px;
+  padding: 0 2px;
+  background: rgba(103, 173, 255, 0.2);
+  color: var(--primary-strong);
+}
+
 input,
 select,
 textarea {
