@@ -1016,14 +1016,15 @@
     const stats = buildStats(state.stays);
     const cards = [
       {
-        label: "Days",
-        value: formatNumber(stats.totalDays),
-        detail: `${formatNumber(stats.completedDays)} completed, ${formatNumber(stats.activeDays)} current`
-      },
-      {
         label: "Countries logged",
         value: formatNumber(stats.uniqueCountries),
         detail: `${formatNumber(stats.totalStays)} stay${stats.totalStays === 1 ? "" : "s"} recorded`
+      },
+      {
+        label: "Countries this year",
+        value: formatNumber(stats.countriesThisYear),
+        detail: stats.topCountries.length ? "" : "No country days yet this year",
+        topCountries: stats.topCountries
       },
       {
         label: "Current stay",
@@ -1032,9 +1033,12 @@
         countryValue: stats.currentCountries.length > 0
       },
       {
-        label: "Longest stay",
-        value: stats.longest ? `${formatNumber(stats.longest.days)} d` : "0 d",
-        detail: stats.longest ? `${countryLabel(stats.longest.country)}, ${formatDate(stats.longest.startDate)}` : "No completed or active stays"
+        label: "Next stay",
+        value: stats.nextStay ? countryLabel(stats.nextStay.country) : "None",
+        detail: stats.nextStay
+          ? `Starts ${formatDate(stats.nextStay.startDate)}${stats.nextStay.endDate ? `, ${formatNumber(daysBetweenInclusive(stats.nextStay.startDate, stats.nextStay.endDate))} days planned` : ""}`
+          : "No upcoming stays",
+        countryValue: Boolean(stats.nextStay)
       }
     ];
 
@@ -1060,7 +1064,26 @@
     detail.className = "detail";
     detail.textContent = card.detail;
 
-    article.append(label, value, detail);
+    article.append(label, value);
+    if (card.topCountries && card.topCountries.length) {
+      const list = document.createElement("ul");
+      list.className = "stat-card-country-list";
+      list.setAttribute("aria-label", "Top countries by days this year");
+
+      card.topCountries.forEach((item) => {
+        const row = document.createElement("li");
+        const country = document.createElement("span");
+        country.textContent = countryLabel(item.country);
+        const days = document.createElement("span");
+        days.textContent = `${formatNumber(item.days)} d`;
+        row.append(country, days);
+        list.appendChild(row);
+      });
+
+      article.appendChild(list);
+    } else if (card.detail) {
+      article.appendChild(detail);
+    }
     return article;
   }
 
@@ -1644,39 +1667,52 @@
   function buildStats(stays) {
     const today = todayIso();
     const uniqueCountries = new Set(stays.map((stay) => stay.country)).size;
-    let totalDays = 0;
-    let completedDays = 0;
-    let activeDays = 0;
-    let longest = null;
+    const todayOrdinal = dateOrdinal(today);
+    const yearStart = dateOrdinal(`${today.slice(0, 4)}-01-01`);
+    const yearCountryDays = new Map();
     let upcomingCount = 0;
     const currentCountries = [];
+    let nextStay = null;
 
     stays.forEach((stay) => {
-      const days = daysForStay(stay);
       const status = getStayStatus(stay);
-      totalDays += days;
 
       if (status === "current") {
-        activeDays += daysBetweenInclusive(stay.startDate, today);
         currentCountries.push(stay.country);
-      } else if (status === "past") {
-        completedDays += days;
       } else if (status === "upcoming") {
         upcomingCount += 1;
+        if (!nextStay || compareDates(stay.startDate, nextStay.startDate) < 0) {
+          nextStay = stay;
+        }
       }
 
-      if (!longest || days > longest.days) {
-        longest = { ...stay, days };
+      const start = Math.max(dateOrdinal(stay.startDate), yearStart);
+      const end = Math.min(dateOrdinal(stay.endDate || today), todayOrdinal);
+      if (start > end) {
+        return;
+      }
+
+      let countryDays = yearCountryDays.get(stay.country);
+      if (!countryDays) {
+        countryDays = new Set();
+        yearCountryDays.set(stay.country, countryDays);
+      }
+      for (let ordinal = start; ordinal <= end; ordinal += 1) {
+        countryDays.add(ordinal);
       }
     });
 
+    const topCountries = [...yearCountryDays.entries()]
+      .map(([country, days]) => ({ country, days: days.size }))
+      .sort((a, b) => b.days - a.days || a.country.localeCompare(b.country))
+      .slice(0, 3);
+
     return {
-      totalDays,
-      completedDays,
-      activeDays,
+      countriesThisYear: yearCountryDays.size,
+      topCountries,
       uniqueCountries,
       totalStays: stays.length,
-      longest,
+      nextStay,
       upcomingCount,
       currentCountries
     };

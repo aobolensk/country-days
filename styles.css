@@ -373,6 +373,32 @@ select {
   font-size: 0.88rem;
 }
 
+.stat-card-country-list {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  list-style: none;
+}
+
+.stat-card-country-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stat-card-country-list li span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.stat-card-country-list li span:last-child {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
 .stat-card:first-child .detail {
   color: rgba(255, 255, 255, 0.74);
 }
