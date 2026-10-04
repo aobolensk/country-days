@@ -1396,7 +1396,7 @@
     top.className = "stay-topline";
 
     const country = document.createElement("h3");
-    country.textContent = countryLabel(stay.country);
+    country.textContent = canonicalPlaceName(stay.country);
 
     const pill = document.createElement("span");
     pill.className = `status-pill status-${status}`;
