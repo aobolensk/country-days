@@ -1,4 +1,4 @@
-const CACHE_NAME = "country-days-v9";
+const CACHE_NAME = "country-days";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -20,28 +20,40 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys
+          .filter((key) => key.startsWith("country-days-v"))
+          .map((key) => caches.delete(key).catch(() => false))
       ))
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") {
+  const request = event.request;
+  if (request.method !== "GET") {
     return;
   }
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.ok) {
-          const copy = response.clone();
-          event.waitUntil(
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy))
-          );
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
+  event.respondWith((async () => {
+    try {
+      const response = await fetch(request);
+      if (response.ok || response.type === "opaque") {
+        event.waitUntil(
+          caches.open(CACHE_NAME)
+            .then((cache) => cache.put(request, response.clone()))
+            .catch(() => {})
+        );
+      }
+      return response;
+    } catch (error) {
+      const cached = await caches.open(CACHE_NAME)
+        .then(async (cache) => await cache.match(request)
+          || (request.mode === "navigate" && await cache.match("./index.html")))
+        .catch(() => null);
+      if (cached) {
+        return cached;
+      }
+      throw error;
+    }
+  })());
 });
