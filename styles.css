@@ -602,6 +602,25 @@ select {
   gap: 10px;
 }
 
+.date-gap-warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 9px;
+  margin: 0 24px;
+  padding: 9px 12px;
+  border: 1px solid rgba(240, 184, 75, 0.38);
+  border-radius: var(--radius);
+  background: rgba(240, 184, 75, 0.09);
+  color: #ffd486;
+  font-size: 0.86rem;
+}
+
+.date-gap-warning strong {
+  flex: 0 0 auto;
+  color: var(--amber);
+}
+
 .stay-card {
   display: grid;
   grid-template-columns: 54px minmax(0, 1fr) auto;

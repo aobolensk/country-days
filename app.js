@@ -1276,6 +1276,7 @@
 
   function renderTable() {
     const rows = getFilteredStays();
+    const dateGaps = findDateGaps(state.stays);
     els.tableBody.replaceChildren();
     els.emptyState.hidden = state.stays.length > 0;
 
@@ -1288,8 +1289,90 @@
     }
 
     const fragment = document.createDocumentFragment();
-    rows.forEach((stay) => fragment.appendChild(renderStayRow(stay)));
+    rows.forEach((stay, index) => {
+      fragment.appendChild(renderStayRow(stay));
+
+      const nextStay = rows[index + 1];
+      if (!nextStay) {
+        return;
+      }
+
+      const gap = findGapBetweenVisibleStays(stay, nextStay, dateGaps);
+      if (gap) {
+        fragment.appendChild(renderDateGap(gap));
+      }
+    });
     els.tableBody.appendChild(fragment);
+  }
+
+  function findGapBetweenVisibleStays(stay, nextStay, dateGaps) {
+    if (state.sort === "newest") {
+      return dateGaps.find((gap) =>
+        compareDates(stay.startDate, gap.next.startDate) >= 0
+        && compareDates(nextStay.startDate, gap.next.startDate) < 0
+      );
+    }
+
+    if (state.sort === "oldest") {
+      return dateGaps.find((gap) =>
+        compareDates(stay.startDate, gap.next.startDate) < 0
+        && compareDates(nextStay.startDate, gap.next.startDate) >= 0
+      );
+    }
+
+    return dateGaps.find((gap) =>
+      (gap.previous.id === stay.id && gap.next.id === nextStay.id)
+      || (gap.previous.id === nextStay.id && gap.next.id === stay.id)
+    );
+  }
+
+  function findDateGaps(stays) {
+    const ordered = [...stays].sort((a, b) =>
+      compareDates(a.startDate, b.startDate)
+      || compareDates(sortEndDate(a), sortEndDate(b))
+      || compareCountries(a, b)
+    );
+    const gaps = [];
+    let coveredThrough = null;
+    let coveringStay = null;
+
+    ordered.forEach((stay) => {
+      const start = dateOrdinal(stay.startDate);
+      const end = endOrdinal(stay);
+
+      if (coveredThrough !== null && start > coveredThrough + 1) {
+        gaps.push({
+          previous: coveringStay,
+          next: stay,
+          startDate: isoFromOrdinal(coveredThrough + 1),
+          endDate: isoFromOrdinal(start - 1),
+          days: start - coveredThrough - 1
+        });
+      }
+
+      if (coveredThrough === null || end > coveredThrough) {
+        coveredThrough = end;
+        coveringStay = stay;
+      }
+    });
+
+    return gaps;
+  }
+
+  function renderDateGap(gap) {
+    const warning = document.createElement("div");
+    warning.className = "date-gap-warning";
+    warning.setAttribute("role", "note");
+
+    const label = document.createElement("strong");
+    label.textContent = "Date gap";
+
+    const detail = document.createElement("span");
+    const dayLabel = gap.days === 1 ? "day" : "days";
+    detail.textContent = `${formatNumber(gap.days)} ${dayLabel} without a recorded stay, ${formatDate(gap.startDate)} to ${formatDate(gap.endDate)}`;
+
+    warning.append(label, detail);
+    return warning;
   }
 
   function renderStayRow(stay) {
