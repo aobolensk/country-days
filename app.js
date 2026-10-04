@@ -2,6 +2,7 @@
   "use strict";
 
   const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  const BREAKDOWN_PAGE_SIZE = 8;
   const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
   const DB_NAME = "country-days-db";
 
@@ -551,6 +552,8 @@
     stays: [],
     calendarOpen: false,
     calendarMonth: todayIso().slice(0, 7),
+    countryBreakdownLimit: BREAKDOWN_PAGE_SIZE,
+    yearBreakdownLimit: BREAKDOWN_PAGE_SIZE,
     search: "",
     status: "all",
     sort: "newest",
@@ -610,7 +613,9 @@
     els.todayMonthButton = document.getElementById("todayMonthButton");
     els.nextMonthButton = document.getElementById("nextMonthButton");
     els.countryBreakdown = document.getElementById("countryBreakdown");
+    els.countryBreakdownMore = document.getElementById("countryBreakdownMore");
     els.yearBreakdown = document.getElementById("yearBreakdown");
+    els.yearBreakdownMore = document.getElementById("yearBreakdownMore");
     els.tableBody = document.getElementById("staysTableBody");
     els.emptyState = document.getElementById("emptyState");
     els.searchInput = document.getElementById("searchInput");
@@ -638,6 +643,14 @@
     els.exportButton.addEventListener("click", exportCsv);
     els.csvFileInput.addEventListener("change", importCsv);
     els.calendarToggleButton.addEventListener("click", toggleCalendar);
+    els.countryBreakdownMore.addEventListener("click", () => {
+      state.countryBreakdownLimit += BREAKDOWN_PAGE_SIZE;
+      renderBreakdowns();
+    });
+    els.yearBreakdownMore.addEventListener("click", () => {
+      state.yearBreakdownLimit += BREAKDOWN_PAGE_SIZE;
+      renderBreakdowns();
+    });
     els.prevMonthButton.addEventListener("click", () => moveCalendarMonth(-1));
     els.todayMonthButton.addEventListener("click", () => {
       state.calendarMonth = todayIso().slice(0, 7);
@@ -1052,12 +1065,25 @@
   }
 
   function renderBreakdowns() {
-    renderBarList(els.countryBreakdown, buildCountryTotals(state.stays), "No country totals yet.");
-    renderBarList(els.yearBreakdown, buildYearTotals(state.stays), "No yearly totals yet.");
+    renderBarList(
+      els.countryBreakdown,
+      els.countryBreakdownMore,
+      buildCountryTotals(state.stays),
+      "No country totals yet.",
+      state.countryBreakdownLimit
+    );
+    renderBarList(
+      els.yearBreakdown,
+      els.yearBreakdownMore,
+      buildYearTotals(state.stays),
+      "No yearly totals yet.",
+      state.yearBreakdownLimit
+    );
   }
 
-  function renderBarList(container, items, emptyMessage) {
+  function renderBarList(container, moreButton, items, emptyMessage, displayLimit) {
     container.replaceChildren();
+    moreButton.hidden = true;
 
     if (!items.length) {
       const empty = document.createElement("p");
@@ -1070,7 +1096,7 @@
     const max = Math.max(...items.map((item) => item.days));
     const fragment = document.createDocumentFragment();
 
-    items.slice(0, 8).forEach((item) => {
+    items.slice(0, displayLimit).forEach((item) => {
       const row = document.createElement("div");
       row.className = "bar-row";
 
@@ -1097,6 +1123,7 @@
     });
 
     container.appendChild(fragment);
+    moreButton.hidden = items.length <= displayLimit;
   }
 
   function moveCalendarMonth(offset) {

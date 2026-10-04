@@ -511,6 +511,10 @@ select {
   gap: 12px;
 }
 
+.breakdown-more {
+  margin-top: 14px;
+}
+
 .bar-row {
   display: grid;
   gap: 8px;
