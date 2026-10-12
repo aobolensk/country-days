@@ -6,6 +6,7 @@ A static [browser app](https://aobolensk.github.io/country-days/) for tracking s
 
 - Track country or territory stays.
 - Track start day and optional end date.
+- World map of visited and upcoming countries, with past and planned stay details.
 - CSV import and export using `country,start_date,end_date,notes` columns.
 - PWA manifest and service worker for a browser-installable experience on localhost or HTTPS.
 

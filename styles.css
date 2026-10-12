@@ -21,6 +21,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html {
   min-height: 100%;
   background: var(--bg);
@@ -103,6 +107,30 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.page-nav {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.page-nav a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.page-nav a[aria-current="page"] {
+  border-color: var(--primary-strong);
+  background: rgba(47, 140, 255, 0.2);
+  color: var(--primary-strong);
+}
+
+.page-nav a:focus-visible,
+.map-credit:focus-visible {
+  outline: 2px solid var(--primary-strong);
+  outline-offset: 4px;
+}
+
 .button {
   min-height: 42px;
   border: 1px solid transparent;
@@ -172,6 +200,7 @@ button:disabled {
 .analytics-panel,
 .calendar-panel,
 .table-panel,
+.map-panel,
 .stat-card {
   background: rgba(17, 20, 27, 0.92);
   border: 1px solid var(--line);
@@ -411,9 +440,196 @@ select {
 
 .analytics-panel,
 .calendar-panel,
-.table-panel {
+.table-panel,
+.map-panel {
   padding: 16px;
   min-width: 0;
+}
+
+.map-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+  align-items: start;
+  gap: 16px;
+}
+
+.map-detail {
+  position: sticky;
+  top: 18px;
+}
+
+.map-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  align-items: flex-end;
+}
+
+.map-heading .muted-text,
+.map-detail .muted-text {
+  margin-top: 10px;
+}
+
+.map-heading .tool-field {
+  width: auto;
+}
+
+.map-canvas {
+  min-height: 240px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #0b0e14;
+}
+
+.world-map {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.map-ocean {
+  fill: #101b2a;
+  stroke: var(--line);
+}
+
+.map-graticule {
+  fill: none;
+  stroke: #223044;
+  stroke-width: 0.5;
+}
+
+.map-country {
+  fill: var(--map-color, #303b4b);
+  stroke: #0b0e14;
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+  cursor: help;
+}
+
+.map-country.recorded {
+  cursor: pointer;
+}
+
+.map-country.upcoming {
+  fill: var(--map-color, #f0b84b);
+}
+
+.map-country:hover,
+.map-country:focus,
+.map-country.selected {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  outline: none;
+}
+
+.map-marker {
+  stroke-width: 1;
+}
+
+.map-message:empty {
+  display: none;
+}
+
+.map-message {
+  margin: 14px 0;
+}
+
+.map-footer,
+.map-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.map-footer {
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.map-legend > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-legend-unvisited {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--faint);
+  border-radius: 3px;
+  background: #303b4b;
+}
+
+.map-legend > span:last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-legend-upcoming {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: #f0b84b;
+}
+
+.map-legend-scale {
+  width: 80px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2f8cff, #28d17c);
+}
+
+.map-credit {
+  color: var(--muted);
+}
+
+.map-detail h2 {
+  font-size: 1.35rem;
+}
+
+.map-stay-list {
+  display: grid;
+  gap: 9px;
+  max-height: min(48vh, 460px);
+  overflow-y: auto;
+  margin-top: 14px;
+  padding-right: 3px;
+}
+
+.map-stay {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+}
+
+.map-stay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.map-stay-dates,
+.map-stay-detail,
+.map-stay-notes {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.map-stay-detail,
+.map-stay-notes {
+  margin: 0;
+}
+
+.map-stay-notes {
+  overflow-wrap: anywhere;
 }
 
 .calendar-toggle-row {
@@ -842,6 +1058,14 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .map-page {
+    grid-template-columns: 1fr;
+  }
+
+  .map-detail {
+    position: static;
+  }
+
   .entry-panel {
     position: static;
   }
@@ -860,6 +1084,19 @@ select {
 }
 
 @media (max-width: 620px) {
+  .map-heading {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .map-heading .tool-field {
+    width: 100%;
+  }
+
+  .map-canvas {
+    min-height: 0;
+  }
+
   .stats-grid,
   .date-grid {
     grid-template-columns: 1fr;

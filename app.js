@@ -5,6 +5,7 @@
   const BREAKDOWN_PAGE_SIZE = 8;
   const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
   const DB_NAME = "country-days-db";
+  const MAP_DATA_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_map_units.geojson";
 
   const COUNTRIES = [
     "Afghanistan",
@@ -557,6 +558,10 @@
     search: "",
     status: "all",
     sort: "newest",
+    mapData: null,
+    mapLoading: false,
+    mapCountry: "",
+    mapTotals: new Map(),
     toastTimer: null
   };
 
@@ -569,6 +574,7 @@
   async function init() {
     cacheElements();
     bindEvents();
+    renderPage();
     registerServiceWorker();
 
     if (!window.Dexie) {
@@ -625,9 +631,51 @@
     els.exportButton = document.getElementById("exportButton");
     els.csvFileInput = document.getElementById("csvFileInput");
     els.toast = document.getElementById("toast");
+    els.dashboardPage = document.getElementById("dashboardPage");
+    els.mapPage = document.getElementById("mapPage");
+    els.dashboardLink = document.getElementById("dashboardLink");
+    els.mapLink = document.getElementById("mapLink");
+    els.mapCanvas = document.getElementById("mapCanvas");
+    els.mapSummary = document.getElementById("mapSummary");
+    els.mapMessage = document.getElementById("mapMessage");
+    els.mapRetryButton = document.getElementById("mapRetryButton");
+    els.mapCountrySelect = document.getElementById("mapCountrySelect");
+    els.mapCountryTitle = document.getElementById("mapCountryTitle");
+    els.mapCountryDetail = document.getElementById("mapCountryDetail");
+    els.mapStayList = document.getElementById("mapStayList");
+    els.mapLegendLabel = document.getElementById("mapLegendLabel");
   }
 
   function bindEvents() {
+    window.addEventListener("hashchange", renderPage);
+    els.mapRetryButton.addEventListener("click", loadMap);
+    els.mapCountrySelect.addEventListener("change", (event) => {
+      selectMapCountry(event.target.value);
+    });
+    els.mapCanvas.addEventListener("click", (event) => {
+      const place = event.target.closest(".map-country");
+      if (place) {
+        selectMapCountry(place.dataset.place);
+      }
+    });
+    els.mapCanvas.addEventListener("keydown", (event) => {
+      const place = event.target.closest(".map-country.recorded");
+      if (place && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        selectMapCountry(place.dataset.place);
+      }
+    });
+    ["pointerover", "focusin"].forEach((type) => {
+      els.mapCanvas.addEventListener(type, (event) => {
+        const place = event.target.closest(".map-country");
+        if (place) {
+          renderMapDetails(place.dataset.place);
+        }
+      });
+    });
+    ["pointerout", "focusout"].forEach((type) => {
+      els.mapCanvas.addEventListener(type, () => renderMapDetails(state.mapCountry));
+    });
     els.form.addEventListener("submit", handleSubmit);
     els.cancelEditButton.addEventListener("click", resetForm);
     els.countryInput.addEventListener("input", renderCountrySuggestions);
@@ -1010,6 +1058,414 @@
     renderCalendar();
     renderBreakdowns();
     renderTable();
+    renderMap();
+  }
+
+  function renderPage() {
+    const mapOpen = window.location.hash === "#map";
+    els.dashboardPage.hidden = mapOpen;
+    els.mapPage.hidden = !mapOpen;
+    document.title = mapOpen ? "Map | Country Days" : "Country Days";
+    [els.dashboardLink, els.mapLink].forEach((link) => link.removeAttribute("aria-current"));
+    (mapOpen ? els.mapLink : els.dashboardLink).setAttribute("aria-current", "page");
+    if (mapOpen) {
+      renderMap();
+      if (!state.mapData && !state.mapLoading) {
+        loadMap();
+      }
+    }
+  }
+
+  async function loadMap() {
+    if (state.mapLoading) {
+      return;
+    }
+    state.mapLoading = true;
+    els.mapCanvas.setAttribute("aria-busy", "true");
+    els.mapMessage.textContent = "Loading world map...";
+    els.mapRetryButton.hidden = true;
+    try {
+      state.mapData = prepareMapData(await fetchMapGeoJson());
+      drawWorldMap();
+    } catch {
+      state.mapData = null;
+      els.mapMessage.textContent = "The map could not load. Check your connection and retry.";
+      els.mapRetryButton.hidden = false;
+    } finally {
+      state.mapLoading = false;
+      els.mapCanvas.setAttribute("aria-busy", "false");
+    }
+    if (state.mapData) {
+      renderMap();
+    }
+  }
+
+  async function fetchMapGeoJson() {
+    const cache = "caches" in window
+      ? await window.caches.open("country-days").catch(() => null)
+      : null;
+    try {
+      const response = await fetch(MAP_DATA_URL);
+      if (!response.ok) {
+        throw new Error("Map data could not load.");
+      }
+      const cacheResponse = response.clone();
+      const geojson = await response.json();
+      if (cache) {
+        await cache.put(MAP_DATA_URL, cacheResponse).catch(() => {});
+      }
+      return geojson;
+    } catch (error) {
+      const cached = await cache?.match(MAP_DATA_URL).catch(() => null);
+      if (cached) {
+        return cached.json();
+      }
+      throw error;
+    }
+  }
+
+  function prepareMapData(geojson) {
+    if (!Array.isArray(geojson.features)) {
+      throw new Error("Map data is not a GeoJSON feature collection.");
+    }
+
+    const project = ([longitude, latitude]) => {
+      const radians = Math.PI / 180;
+      const lambda = longitude * radians;
+      const phi = latitude * radians;
+      const theta = Math.asin(Math.sqrt(3) / 2 * Math.sin(phi));
+      const theta2 = theta * theta;
+      const theta3 = theta2 * theta;
+      const theta6 = theta3 * theta3;
+      const theta8 = theta6 * theta2;
+      const a1 = 1.340264;
+      const a2 = -0.081106;
+      const a3 = 0.000893;
+      const a4 = 0.003796;
+      const denominator = 3 * (9 * a4 * theta8 + 7 * a3 * theta6 + 3 * a2 * theta2 + a1);
+      const x = 2 * Math.sqrt(3) * lambda * Math.cos(theta) / denominator;
+      const y = a4 * theta8 * theta + a3 * theta6 * theta + a2 * theta3 + a1 * theta;
+      return [500 + 180 * x, 260 - 180 * y];
+    };
+
+    const formatPoint = ([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`;
+    const linePath = (coordinates, closed = false) => {
+      const path = coordinates.map((coordinate, index) => `${index ? "L" : "M"}${formatPoint(project(coordinate))}`).join("");
+      return `${path}${closed ? "Z" : ""}`;
+    };
+    const outline = [];
+    for (let longitude = -180; longitude <= 180; longitude += 30) {
+      outline.push([longitude, 90]);
+    }
+    for (let latitude = 90; latitude >= -90; latitude -= 5) {
+      outline.push([180, latitude]);
+    }
+    for (let longitude = 180; longitude >= -180; longitude -= 30) {
+      outline.push([longitude, -90]);
+    }
+    for (let latitude = -90; latitude <= 90; latitude += 5) {
+      outline.push([-180, latitude]);
+    }
+
+    const graticule = [];
+    for (let longitude = -180; longitude <= 180; longitude += 30) {
+      const meridian = [];
+      for (let latitude = -90; latitude <= 90; latitude += 3) {
+        meridian.push([longitude, latitude]);
+      }
+      graticule.push(linePath(meridian));
+    }
+    for (let latitude = -60; latitude <= 60; latitude += 30) {
+      const parallel = [];
+      for (let longitude = -180; longitude <= 180; longitude += 3) {
+        parallel.push([longitude, latitude]);
+      }
+      graticule.push(linePath(parallel));
+    }
+
+    const places = geojson.features.flatMap((feature) => {
+      const geometry = feature.geometry;
+      if (!geometry || !["Polygon", "MultiPolygon"].includes(geometry.type)) {
+        return [];
+      }
+      const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      const path = polygons.flatMap((polygon) => polygon.map((ring) => {
+        const projected = ring.map((coordinate) => {
+          const point = project(coordinate);
+          minX = Math.min(minX, point[0]);
+          minY = Math.min(minY, point[1]);
+          maxX = Math.max(maxX, point[0]);
+          maxY = Math.max(maxY, point[1]);
+          return point;
+        });
+        return `M${projected.map(formatPoint).join("L")}Z`;
+      })).join("");
+      const properties = feature.properties || {};
+      const labelLongitude = Number(properties.LABEL_X);
+      const labelLatitude = Number(properties.LABEL_Y);
+      const hasLabelPoint = properties.LABEL_X != null && properties.LABEL_Y != null
+        && Number.isFinite(labelLongitude) && Number.isFinite(labelLatitude);
+      const point = hasLabelPoint
+        ? project([labelLongitude, labelLatitude])
+        : [(minX + maxX) / 2, (minY + maxY) / 2];
+
+      return [{
+        code: properties.ISO_A2_EH && properties.ISO_A2_EH !== "-99" ? properties.ISO_A2_EH : "",
+        name: properties.NAME || properties.ADMIN || "Unknown place",
+        path,
+        point,
+        small: Math.min(maxX - minX, maxY - minY) < 3
+      }];
+    });
+
+    return {
+      outline: linePath(outline, true),
+      graticule: graticule.join(""),
+      places
+    };
+  }
+
+  function drawWorldMap() {
+    const svgNamespace = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNamespace, "svg");
+    svg.setAttribute("viewBox", "0 0 1000 520");
+    svg.setAttribute("class", "world-map");
+    svg.setAttribute("role", "group");
+    svg.setAttribute("aria-label", "World map of visited, unvisited, and upcoming travel places. Hover on a country for stay details or choose one from the menu.");
+
+    const addPath = (className, data) => {
+      const path = document.createElementNS(svgNamespace, "path");
+      path.setAttribute("class", className);
+      path.setAttribute("d", data);
+      svg.appendChild(path);
+      return path;
+    };
+    addPath("map-ocean", state.mapData.outline);
+    addPath("map-graticule", state.mapData.graticule);
+    state.mapData.places.forEach((place) => {
+      const path = addPath("map-country", place.path);
+      path.dataset.place = place.code;
+      path.dataset.name = place.name;
+      const title = document.createElementNS(svgNamespace, "title");
+      title.textContent = place.name;
+      path.appendChild(title);
+    });
+    state.mapData.places.filter((place) => place.small && place.code).forEach((place) => {
+      const marker = document.createElementNS(svgNamespace, "circle");
+      marker.setAttribute("class", "map-country map-marker");
+      marker.setAttribute("cx", place.point[0]);
+      marker.setAttribute("cy", place.point[1]);
+      marker.setAttribute("r", "3");
+      marker.dataset.place = place.code;
+      marker.dataset.name = place.name;
+      const title = document.createElementNS(svgNamespace, "title");
+      title.textContent = place.name;
+      marker.appendChild(title);
+      svg.appendChild(marker);
+    });
+    els.mapCanvas.replaceChildren(svg);
+  }
+
+  function renderMap() {
+    if (els.mapPage.hidden) {
+      return;
+    }
+    const today = todayIso();
+    const totals = new Map();
+    state.stays.forEach((stay) => {
+      const code = PLACE_CODES[normalizeCountryKey(stay.country)];
+      const key = code || normalizeCountryKey(stay.country);
+      let item = totals.get(key);
+      if (!item) {
+        const country = PLACES.find((place) => PLACE_CODES[normalizeCountryKey(place)] === code) || stay.country;
+        item = { country, code, days: 0, visits: [], upcoming: [] };
+        totals.set(key, item);
+      }
+
+      if (compareDates(stay.startDate, today) > 0) {
+        item.upcoming.push(stay);
+        return;
+      }
+
+      const endDate = !stay.endDate || compareDates(stay.endDate, today) > 0 ? today : stay.endDate;
+      item.days += daysForStay({ ...stay, endDate });
+      item.visits.push(stay);
+    });
+    state.mapTotals = totals;
+    if (!totals.has(state.mapCountry)) {
+      state.mapCountry = "";
+    }
+    const visitedCount = [...totals.values()].filter((item) => item.days > 0).length;
+    const upcomingCount = [...totals.values()].filter((item) => item.upcoming.length > 0).length;
+    const items = state.mapData
+      ? [...new Map(state.mapData.places
+        .filter((place) => place.code)
+        .map((place) => [place.code, {
+          country: mapPlaceLabel(place),
+          code: place.code,
+          days: totals.get(place.code)?.days || 0,
+          upcoming: totals.get(place.code)?.upcoming.length || 0
+        }])).entries()]
+      : [];
+    totals.forEach((item, key) => {
+      if (!items.some(([itemKey]) => itemKey === key)) {
+        items.push([key, { country: item.country, code: item.code, days: item.days, upcoming: item.upcoming.length }]);
+      }
+    });
+    items.sort((a, b) => a[1].country.localeCompare(b[1].country));
+    const maxDays = Math.max(1, ...items.map(([, item]) => item.days));
+    const totalDays = items.reduce((sum, [, item]) => sum + item.days, 0);
+    els.mapSummary.textContent = `${formatNumber(visitedCount)} place${visitedCount === 1 ? "" : "s"} visited, ${formatNumber(upcomingCount)} with upcoming stays, ${formatNumber(totalDays)} days spent through today.`;
+    els.mapCountrySelect.replaceChildren(new Option("Choose a country or territory", ""));
+    items.forEach(([key, item]) => {
+      const detail = item.days
+        ? `${formatNumber(item.days)} d${item.upcoming ? `, ${item.upcoming} planned` : ""}`
+        : item.upcoming ? `${item.upcoming} planned` : "No visits recorded";
+      els.mapCountrySelect.appendChild(new Option(`${item.country} (${detail})`, key));
+    });
+    els.mapCountrySelect.value = state.mapCountry;
+    els.mapLegendLabel.textContent = items.some(([, item]) => item.days)
+      ? `1 to ${formatNumber(maxDays)} days`
+      : "No days spent yet";
+    if (state.mapData) {
+      els.mapCanvas.querySelectorAll(".map-country").forEach((shape) => {
+        const item = totals.get(shape.dataset.place);
+        shape.classList.toggle("upcoming", Boolean(item?.upcoming.length) && !item.days);
+        shape.classList.toggle("recorded", Boolean(item));
+        shape.style.removeProperty("--map-color");
+        shape.removeAttribute("tabindex");
+        shape.removeAttribute("role");
+        shape.removeAttribute("aria-label");
+        shape.querySelector("title").textContent = shape.dataset.name;
+        if (shape.classList.contains("map-marker")) {
+          shape.style.display = item ? "" : "none";
+        }
+        if (item?.days) {
+          const fraction = maxDays > 1 ? (item.days - 1) / (maxDays - 1) : 1;
+          const color = [47, 140, 255].map((value, index) => Math.round(value + ([40, 209, 124][index] - value) * fraction));
+          shape.style.setProperty("--map-color", `rgb(${color.join(", ")})`);
+        } else if (item?.upcoming.length) {
+          shape.style.setProperty("--map-color", "#f0b84b");
+        }
+        if (item) {
+          shape.setAttribute("tabindex", "0");
+          shape.setAttribute("role", "button");
+          const label = item.days
+            ? `${item.country}: ${formatNumber(item.days)} days spent${item.upcoming.length ? `, ${item.upcoming.length} upcoming` : ""}`
+            : `${item.country}: ${item.upcoming.length} upcoming stay${item.upcoming.length === 1 ? "" : "s"}`;
+          shape.setAttribute("aria-label", label);
+          shape.querySelector("title").textContent = label;
+        }
+      });
+      const mapped = new Set(state.mapData.places.map((place) => place.code));
+      const missing = [...totals.entries()].filter(([, item]) => !mapped.has(item.code)).map(([, item]) => item.country);
+      els.mapMessage.textContent = !totals.size
+        ? "No stays yet. Add a stay on the Dashboard to highlight visited or upcoming places."
+        : missing.length ? `Places without a map boundary: ${missing.join(", ")}. Choose one above to see its stays.` : "";
+    }
+    selectMapCountry(state.mapCountry);
+  }
+
+  function mapPlaceLabel(place) {
+    return PLACES.find((country) => PLACE_CODES[normalizeCountryKey(country)] === place.code) || place.name;
+  }
+
+  function selectMapCountry(key) {
+    state.mapCountry = key;
+    els.mapCountrySelect.value = key;
+    els.mapCanvas.querySelectorAll(".map-country").forEach((shape) => {
+      shape.classList.toggle("selected", Boolean(key) && shape.dataset.place === key);
+    });
+    renderMapDetails(key);
+  }
+
+  function renderMapDetails(key) {
+    const item = state.mapTotals.get(key);
+    const place = key ? state.mapData?.places.find((mapPlace) => mapPlace.code === key) : undefined;
+    const country = item?.country || (place ? mapPlaceLabel(place) : "");
+    els.mapCountryTitle.textContent = country ? countryLabel(country) : "Explore the map";
+    els.mapStayList.replaceChildren();
+
+    if (!country) {
+      els.mapCountryDetail.textContent = "Hover over a country or choose one above to see past and upcoming stays.";
+      return;
+    }
+
+    if (!item) {
+      els.mapCountryDetail.textContent = "Not visited yet. No past, current, or upcoming stays are recorded.";
+      return;
+    }
+
+    const currentCount = item.visits.filter((stay) => getStayStatus(stay) === "current").length;
+    const visitCount = item.visits.length;
+    const visitLabel = `${formatNumber(item.days)} day${item.days === 1 ? "" : "s"} across ${formatNumber(visitCount)} visit${visitCount === 1 ? "" : "s"}`;
+    const currentLabel = currentCount ? `${currentCount} current stay${currentCount === 1 ? "" : "s"}` : "";
+    const upcomingLabel = item.upcoming.length
+      ? `${formatNumber(item.upcoming.length)} upcoming stay${item.upcoming.length === 1 ? "" : "s"}`
+      : "";
+    els.mapCountryDetail.textContent = item.days
+      ? [visitLabel, currentLabel, upcomingLabel].filter(Boolean).join(". ") + "."
+      : `Not visited yet. ${upcomingLabel} planned.`;
+
+    const stays = [
+      ...item.visits.map((stay) => ({ stay, status: getStayStatus(stay) })),
+      ...item.upcoming.map((stay) => ({ stay, status: "upcoming" }))
+    ].sort((a, b) => {
+      const rank = { current: 0, upcoming: 1, past: 2 };
+      if (rank[a.status] !== rank[b.status]) {
+        return rank[a.status] - rank[b.status];
+      }
+      return a.status === "upcoming"
+        ? compareDates(a.stay.startDate, b.stay.startDate)
+        : compareDates(b.stay.startDate, a.stay.startDate);
+    });
+    stays.forEach(({ stay, status }) => {
+      els.mapStayList.appendChild(renderMapStay(stay, status));
+    });
+  }
+
+  function renderMapStay(stay, status) {
+    const article = document.createElement("article");
+    article.className = "map-stay";
+
+    const header = document.createElement("div");
+    header.className = "map-stay-header";
+
+    const label = document.createElement("span");
+    label.className = `status-pill status-${status}`;
+    label.textContent = status === "past" ? "Previous visit" : status === "current" ? "Current stay" : "Upcoming";
+
+    const dates = document.createElement("span");
+    dates.className = "map-stay-dates";
+    const endLabel = stay.endDate ? formatDate(stay.endDate) : status === "upcoming" ? "No end date" : "Ongoing";
+    dates.textContent = `${formatDate(stay.startDate)} to ${endLabel}`;
+    header.append(label, dates);
+    article.appendChild(header);
+
+    const detail = document.createElement("p");
+    detail.className = "map-stay-detail";
+    const today = todayIso();
+    const days = status === "upcoming"
+      ? daysForStay(stay)
+      : daysForStay({
+        ...stay,
+        endDate: !stay.endDate || compareDates(stay.endDate, today) > 0 ? today : stay.endDate
+      });
+    detail.textContent = days ? `${formatNumber(days)} days` : "Dates only";
+    article.appendChild(detail);
+
+    if (stay.notes) {
+      const notes = document.createElement("p");
+      notes.className = "map-stay-notes";
+      notes.textContent = stay.notes;
+      article.appendChild(notes);
+    }
+
+    return article;
   }
 
   function renderStats() {

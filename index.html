@@ -25,7 +25,12 @@
         </div>
       </header>
 
-      <main class="app-layout">
+      <nav class="page-nav" aria-label="Pages">
+        <a class="button secondary" id="dashboardLink" href="#dashboard" aria-current="page">Dashboard</a>
+        <a class="button secondary" id="mapLink" href="#map">Map</a>
+      </nav>
+
+      <main class="app-layout" id="dashboardPage">
         <aside class="entry-panel" aria-labelledby="formTitle">
           <div class="panel-header">
             <div>
@@ -163,6 +168,44 @@
               <p>Add a stay manually or import a CSV with country, start_date, end_date, and notes columns.</p>
             </div>
           </section>
+        </section>
+      </main>
+
+      <main class="map-page" id="mapPage" aria-labelledby="mapTitle" hidden>
+        <section class="map-panel">
+          <div class="panel-header map-heading">
+            <div>
+              <p class="eyebrow">Travel map</p>
+              <h2 id="mapTitle" tabindex="-1">Days around the world</h2>
+              <p class="muted-text" id="mapSummary">Days spent through today, across all recorded stays.</p>
+            </div>
+            <label class="tool-field">
+              <span>Choose a country or territory</span>
+              <select id="mapCountrySelect">
+                <option value="">Explore the map</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="map-canvas" id="mapCanvas" aria-busy="false"></div>
+          <p class="muted-text map-message" id="mapMessage" role="status" aria-live="polite"></p>
+          <button class="button secondary compact" id="mapRetryButton" type="button" hidden>Retry map</button>
+
+          <div class="map-footer">
+            <div class="map-legend" aria-label="Map colors">
+              <span><i class="map-legend-unvisited" aria-hidden="true"></i>No days recorded</span>
+              <span class="map-legend-scale" aria-hidden="true"></span>
+              <span id="mapLegendLabel">Fewer to more days</span>
+              <span><i class="map-legend-upcoming" aria-hidden="true"></i>Upcoming</span>
+            </div>
+            <a class="map-credit" href="https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_50m_admin_0_map_units.geojson">Map data: Natural Earth 1:50m</a>
+          </div>
+        </section>
+
+        <section class="analytics-panel map-detail" aria-labelledby="mapCountryTitle">
+          <h2 id="mapCountryTitle">Explore the map</h2>
+          <p class="muted-text" id="mapCountryDetail" role="status" aria-live="polite">Hover over a country or choose one above to see past and upcoming stays.</p>
+          <div class="map-stay-list" id="mapStayList"></div>
         </section>
       </main>
     </div>
