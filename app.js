@@ -81,7 +81,7 @@
     "Guinea-Bissau",
     "Guyana",
     "Haiti",
-    "Holy See",
+    "Vatican City",
     "Honduras",
     "Hungary",
     "Iceland",
@@ -339,7 +339,7 @@
     "guinea-bissau": "GW",
     "guyana": "GY",
     "haiti": "HT",
-    "holy see": "VA",
+    "vatican city": "VA",
     "honduras": "HN",
     "hungary": "HU",
     "iceland": "IS",
@@ -524,6 +524,7 @@
   const PLACE_CODE_ALIASES = {
     "cape verde": "CV",
     "hong kong sar": "HK",
+    "holy see": "VA",
     "macao sar": "MO",
     "macau": "MO",
     "saint helena, ascension and tristan da cunha": "SH",
@@ -535,6 +536,7 @@
   const PLACE_NAME_ALIASES = {
     "cape verde": "Cabo Verde",
     "hong kong sar": "Hong Kong",
+    "holy see": "Vatican City",
     "macao sar": "Macao",
     "macau": "Macao",
     "saint helena, ascension and tristan da cunha": "Saint Helena",
@@ -1249,9 +1251,9 @@
     state.mapData.places.forEach((place) => {
       const path = addPath("map-country", place.path);
       path.dataset.place = place.code;
-      path.dataset.name = place.name;
+      path.dataset.name = mapPlaceLabel(place);
       const title = document.createElementNS(svgNamespace, "title");
-      title.textContent = place.name;
+      title.textContent = path.dataset.name;
       path.appendChild(title);
     });
     state.mapData.places.filter((place) => place.small && place.code).forEach((place) => {
@@ -1261,9 +1263,9 @@
       marker.setAttribute("cy", place.point[1]);
       marker.setAttribute("r", "3");
       marker.dataset.place = place.code;
-      marker.dataset.name = place.name;
+      marker.dataset.name = mapPlaceLabel(place);
       const title = document.createElementNS(svgNamespace, "title");
-      title.textContent = place.name;
+      title.textContent = marker.dataset.name;
       marker.appendChild(title);
       svg.appendChild(marker);
     });
