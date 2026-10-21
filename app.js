@@ -1635,7 +1635,7 @@
         label: "Next stay",
         value: stats.nextStay ? countryLabel(stats.nextStay.country) : "None",
         detail: stats.nextStay
-          ? `Starts ${formatDate(stats.nextStay.startDate)}${stats.nextStay.endDate ? `, ${formatNumber(daysBetweenInclusive(stats.nextStay.startDate, stats.nextStay.endDate))} days planned` : ""}`
+          ? `Starts ${formatDate(stats.nextStay.startDate)}, ${formatNumber(stats.daysUntilNextStay)} day${stats.daysUntilNextStay === 1 ? "" : "s"} left${stats.nextStay.endDate ? `, ${formatNumber(daysBetweenInclusive(stats.nextStay.startDate, stats.nextStay.endDate))} days planned` : ""}`
           : "No upcoming stays",
         countryValue: Boolean(stats.nextStay)
       }
@@ -2395,6 +2395,7 @@
       uniqueCountries,
       totalStays: stays.length,
       nextStay,
+      daysUntilNextStay: nextStay ? dateOrdinal(nextStay.startDate) - todayOrdinal : null,
       upcomingCount,
       currentCountries
     };
