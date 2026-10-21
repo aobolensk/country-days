@@ -45,6 +45,92 @@
     return groups;
   }
 
+  function canonicalizeChanges(changes) {
+    const groups = groupChanges(changes);
+    const byContent = new Map();
+    const aliases = new Map();
+
+    for (const [stayId, history] of groups) {
+      const roots = history.filter((change) => !change.parents.length);
+      if (!roots.length || roots.some((change) => change.record === null)) {
+        continue;
+      }
+      const signatures = new Set(roots.map((change) => contentKey(change.record)));
+      if (signatures.size !== 1) {
+        continue;
+      }
+      const [signature] = signatures;
+      if (!byContent.has(signature)) {
+        byContent.set(signature, []);
+      }
+      byContent.get(signature).push(stayId);
+    }
+
+    for (const stayIds of byContent.values()) {
+      if (stayIds.length < 2) {
+        continue;
+      }
+      const [canonicalId, ...duplicates] = stayIds.sort();
+      for (const stayId of duplicates) {
+        aliases.set(stayId, canonicalId);
+      }
+    }
+
+    const byId = new Map(changes.map((change) => [change.id, change]));
+    const canonicalId = (stayId) => {
+      let current = stayId;
+      const seen = new Set();
+      while (aliases.has(current) && !seen.has(current)) {
+        seen.add(current);
+        current = aliases.get(current);
+      }
+      return current;
+    };
+    let changed;
+    do {
+      changed = false;
+      for (const [stayId, history] of groups) {
+        if (aliases.has(stayId) || history.some((change) => !change.parents.length)) {
+          continue;
+        }
+        const parentStayIds = new Set(history.flatMap((change) => change.parents)
+          .map((id) => byId.get(id)?.stayId)
+          .filter(Boolean)
+          .map(canonicalId));
+        if (parentStayIds.size === 1) {
+          aliases.set(stayId, [...parentStayIds][0]);
+          changed = true;
+        }
+      }
+    } while (changed);
+
+    const remapped = changes.map((change) => {
+      const stayId = canonicalId(change.stayId);
+      return stayId === change.stayId ? change : { ...change, stayId };
+    });
+    const equivalentRoots = new Map();
+    for (const [stayId, history] of groupChanges(remapped)) {
+      const roots = history.filter((change) => !change.parents.length);
+      if (roots.length < 2 || roots.some((change) => change.record === null)
+        || new Set(roots.map((change) => contentKey(change.record))).size !== 1) {
+        continue;
+      }
+      equivalentRoots.set(stayId, roots.map((change) => change.id));
+    }
+
+    return {
+      changes: remapped.map((change) => {
+        const roots = equivalentRoots.get(change.stayId);
+        if (!roots || !change.parents.length) {
+          return change;
+        }
+        const parents = [...new Set([...change.parents, ...roots])];
+        return parents.length === change.parents.length ? change : { ...change, parents };
+      }),
+      aliases
+    };
+  }
+
   function validDate(value) {
     return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
       && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
@@ -88,7 +174,8 @@
         queue.push(change.id);
       }
       for (const id of change.parents) {
-        if (!byId.has(id) || byId.get(id).stayId !== change.stayId) {
+        const parent = byId.get(id);
+        if (!parent || parent.stayId !== change.stayId) {
           throw new Error("Incomplete sync history. Try syncing again.");
         }
         if (!children.has(id)) {
@@ -155,6 +242,12 @@
     async initialize() {
       this.prefs = await this.db.syncMeta.get("preferences") || {};
       this.provider = this.providers.find((provider) => provider.id === this.prefs.providerId) || this.provider;
+      const changes = await this.db.syncChanges.toArray();
+      if (changes.length) {
+        await this.db.transaction("rw", this.db.stays, this.db.syncChanges, async () => {
+          await this.project(new Set(changes.map((change) => change.stayId)));
+        });
+      }
       await this.refresh();
       for (const provider of this.providers) {
         provider.initialize(() => this.emit());
@@ -193,8 +286,20 @@
     }
 
     async project(stayIds) {
-      for (const syncId of stayIds) {
-        const versions = heads(await this.db.syncChanges.where("stayId").equals(syncId).toArray());
+      const changes = await this.db.syncChanges.toArray();
+      const { changes: normalized, aliases } = canonicalizeChanges(changes);
+      const grouped = groupChanges(normalized);
+      const affected = new Set([...stayIds].map((stayId) => aliases.get(stayId) || stayId));
+      for (const [stayId, canonicalId] of aliases) {
+        if (affected.has(canonicalId)) {
+          const duplicate = await this.db.stays.where("syncId").equals(stayId).first();
+          if (duplicate) {
+            await this.db.stays.delete(duplicate.id);
+          }
+        }
+      }
+      for (const syncId of affected) {
+        const versions = heads(grouped.get(syncId) || []);
         const visible = versions.find((change) => change.record !== null);
         const existing = await this.db.stays.where("syncId").equals(syncId).first();
         if (visible) {
@@ -253,8 +358,9 @@
 
     async getConflicts() {
       const conflicts = [];
-      for (const [stayId, changes] of groupChanges(await this.db.syncChanges.toArray())) {
-        const versions = heads(changes);
+      const { changes } = canonicalizeChanges(await this.db.syncChanges.toArray());
+      for (const [stayId, history] of groupChanges(changes)) {
+        const versions = heads(history);
         if (new Set(versions.map((change) => contentKey(change.record))).size > 1) {
           conflicts.push({ stayId, versions });
         }
@@ -376,9 +482,10 @@
           }
           all.set(change.id, change);
         }
-        validateHistory([...all.values()]);
+        const { changes } = canonicalizeChanges([...all.values()]);
+        validateHistory(changes);
         await this.db.syncChanges.bulkPut(incoming);
-        await this.project(new Set(incoming.map((change) => change.stayId)));
+        await this.project(new Set([...all.values()].map((change) => change.stayId)));
         await this.db.syncMeta.bulkPut(files.map((id) => ({ key: `file:${this.provider.id}:${id}` })));
       });
     }

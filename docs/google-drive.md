@@ -33,7 +33,7 @@ Choose **Sign in**, then **Continue with Google** on each device. Sign-in syncs 
 - Automatic sync runs after edits, on return or reconnection, and every minute while visible.
 - Reloads remember the account. Tokens stay in memory, so reloads and token expiry require reconnecting in Settings.
 - Sign-out stops sync in the current tab and keeps local data. [Revoke access](https://myaccount.google.com/connections) through Google.
-- Conflicting edits, deletions, and stale forms require choosing a version. Separate immutable batches preserve concurrent uploads and history, including deleted stays. Matching stays created independently remain separate.
+- Conflicting edits, deletions, and stale forms require choosing a version. Separate immutable batches preserve concurrent uploads and history, including deleted stays. Matching stays created independently merge when their country, dates, and notes are identical.
 - Deleting hidden Drive data does not clear local history. Connected devices can upload it again.
 
 ## Data and implementation
