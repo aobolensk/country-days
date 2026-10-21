@@ -113,6 +113,116 @@ button:disabled {
   margin-bottom: 18px;
 }
 
+.account-page {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.account-panel {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(17, 20, 27, 0.92);
+}
+
+.account-panel h2,
+.account-panel h3 {
+  margin: 0;
+}
+
+.account-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 280px;
+  text-decoration: none;
+}
+
+#accountLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-indicator {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+.account-button:focus-visible {
+  outline: 2px solid var(--primary-strong);
+  outline-offset: 4px;
+}
+
+.account-email {
+  font-weight: 760;
+  overflow-wrap: anywhere;
+}
+
+.provider-options {
+  display: grid;
+  gap: 10px;
+  margin: 24px 0;
+}
+
+.sync-settings {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.sync-version {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sync-automatic {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sync-automatic input {
+  width: auto;
+  flex-shrink: 0;
+}
+
+.account-privacy {
+  font-size: 0.85rem;
+}
+
+.sync-conflict {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--amber);
+  border-radius: var(--radius);
+}
+
+.sync-conflict h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.sync-version + .sync-version {
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.sync-version p {
+  flex: 1 1 220px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .page-nav a {
   display: inline-flex;
   align-items: center;

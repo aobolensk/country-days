@@ -4,11 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#05070b">
+    <meta name="google-client-id" content="$GOOGLE_CLIENT_ID">
     <title>Country Days</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css">
     <script defer src="https://cdn.jsdelivr.net/npm/dexie@4/dist/dexie.min.js"></script>
+    <script defer src="sync.js"></script>
+    <script defer src="google-drive.js"></script>
     <script defer src="app.js"></script>
   </head>
   <body>
@@ -18,9 +21,13 @@
           <p class="eyebrow">Personal travel log</p>
           <h1>Country Days</h1>
         </div>
-        <div class="topbar-actions" aria-label="Data actions">
+        <div class="topbar-actions" aria-label="Actions">
           <button class="button secondary" id="importButton" type="button">Import CSV</button>
           <button class="button secondary" id="exportButton" type="button">Export CSV</button>
+          <a class="button secondary account-button" id="accountLink" href="#account" hidden>
+            <span id="accountLabel">Sign in</span>
+            <span class="account-indicator" id="accountAttention" aria-label="Sync needs attention" hidden></span>
+          </a>
           <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
         </div>
       </header>
@@ -29,6 +36,46 @@
         <a class="button secondary" id="dashboardLink" href="#dashboard" aria-current="page">Dashboard</a>
         <a class="button secondary" id="mapLink" href="#map">Map</a>
       </nav>
+
+      <main class="account-page" id="accountPage" aria-labelledby="accountTitle" hidden>
+        <section class="account-panel">
+          <p class="eyebrow">Your account</p>
+          <h2 id="accountTitle">Sign in</h2>
+          <p class="muted-text">Choose a storage service to sync your stays across devices.</p>
+          <div class="provider-options" id="providerOptions"></div>
+          <p class="muted-text" id="accountStatus" role="status" aria-live="polite"></p>
+          <p class="muted-text account-privacy">Your data is stored in your own connected account. You can keep using this device without signing in.</p>
+        </section>
+      </main>
+
+      <main class="account-page" id="settingsPage" aria-labelledby="settingsTitle" hidden>
+        <section class="account-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Your account</p>
+              <h2 id="settingsTitle">Settings</h2>
+            </div>
+            <button class="button ghost compact" id="signOutButton" type="button">Sign out</button>
+          </div>
+          <p class="account-email" id="settingsEmail"></p>
+          <p class="muted-text" id="settingsProvider"></p>
+          <section class="sync-settings" aria-labelledby="syncSettingsTitle">
+            <h3 id="syncSettingsTitle">Synchronization</h3>
+            <p class="muted-text" id="syncStatus" role="status" aria-live="polite"></p>
+            <button class="button secondary" id="syncButton" type="button" disabled>Sync now</button>
+            <label class="sync-automatic">
+              <input id="automaticSyncInput" type="checkbox" disabled>
+              <span>Automatically sync while this app is open</span>
+            </label>
+            <p class="muted-text account-privacy">Changes are saved on this device while offline. Reconnect your storage account when access expires.</p>
+          </section>
+          <section class="sync-settings" id="syncConflicts" aria-labelledby="syncConflictsTitle" hidden>
+            <h3 id="syncConflictsTitle">Choose which changes to keep</h3>
+            <p class="muted-text">These stays changed on more than one device. Choose a version for each stay to update all devices.</p>
+            <div id="syncConflictList"></div>
+          </section>
+        </section>
+      </main>
 
       <main class="app-layout" id="dashboardPage">
         <aside class="entry-panel" aria-labelledby="formTitle">

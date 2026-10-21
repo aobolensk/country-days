@@ -568,6 +568,9 @@
   };
 
   let db;
+  let syncEngine;
+  let editingStay = null;
+  let syncStatus = {};
 
   const els = {};
 
@@ -589,10 +592,19 @@
     db.version(1).stores({
       stays: "++id,country,startDate,endDate,createdAt,updatedAt"
     });
+    window.CountryDaysSync.configureDatabase(db, "google");
 
     try {
       await db.open();
-      await loadStays();
+      const clientId = document.querySelector('meta[name="google-client-id"]').content;
+      syncEngine = new window.CountryDaysSync(db, {
+        providers: [new window.GoogleDriveProvider({
+          clientId: clientId === "$GOOGLE_CLIENT_ID" ? "" : clientId
+        })],
+        onChange: loadStays,
+        onStatus: renderSyncStatus
+      });
+      await syncEngine.initialize();
     } catch (error) {
       setFormMessage("Could not open IndexedDB in this browser.");
       showToast(error.message || "IndexedDB failed to open.");
@@ -646,6 +658,21 @@
     els.mapCountryDetail = document.getElementById("mapCountryDetail");
     els.mapStayList = document.getElementById("mapStayList");
     els.mapLegendLabel = document.getElementById("mapLegendLabel");
+    els.syncButton = document.getElementById("syncButton");
+    els.signOutButton = document.getElementById("signOutButton");
+    els.accountPage = document.getElementById("accountPage");
+    els.settingsPage = document.getElementById("settingsPage");
+    els.accountLink = document.getElementById("accountLink");
+    els.accountLabel = document.getElementById("accountLabel");
+    els.accountAttention = document.getElementById("accountAttention");
+    els.accountStatus = document.getElementById("accountStatus");
+    els.providerOptions = document.getElementById("providerOptions");
+    els.settingsEmail = document.getElementById("settingsEmail");
+    els.settingsProvider = document.getElementById("settingsProvider");
+    els.automaticSyncInput = document.getElementById("automaticSyncInput");
+    els.syncStatus = document.getElementById("syncStatus");
+    els.syncConflicts = document.getElementById("syncConflicts");
+    els.syncConflictList = document.getElementById("syncConflictList");
   }
 
   function bindEvents() {
@@ -692,6 +719,19 @@
     els.importButton.addEventListener("click", () => els.csvFileInput.click());
     els.exportButton.addEventListener("click", exportCsv);
     els.csvFileInput.addEventListener("change", importCsv);
+    els.syncButton.addEventListener("click", () => {
+      if (syncStatus.connected) {
+        syncEngine.sync();
+      } else {
+        syncEngine.connect();
+      }
+    });
+    els.signOutButton.addEventListener("click", () => {
+      syncEngine.disconnect().catch((error) => showToast(error.message));
+    });
+    els.automaticSyncInput.addEventListener("change", () => {
+      syncEngine.setAutomatic(els.automaticSyncInput.checked).catch((error) => showToast(error.message));
+    });
     els.calendarToggleButton.addEventListener("click", toggleCalendar);
     els.countryBreakdownMore.addEventListener("click", () => {
       state.countryBreakdownLimit += BREAKDOWN_PAGE_SIZE;
@@ -919,27 +959,10 @@
       }
     }
 
-    const now = new Date().toISOString();
-
     try {
-      if (id) {
-        await db.stays.update(id, {
-          ...record,
-          updatedAt: now
-        });
-        showToast("Stay updated.");
-        resetForm();
-      } else {
-        await db.stays.add({
-          ...record,
-          createdAt: now,
-          updatedAt: now
-        });
-        showToast("Stay added.");
-        resetForm(suggestNextStartDate(record));
-      }
-
-      await loadStays();
+      await syncEngine.saveStay(record, editingStay);
+      showToast(id ? "Stay updated." : "Stay added.");
+      resetForm(id ? "" : suggestNextStartDate(record));
     } catch (error) {
       setFormMessage(error.message || "Could not save the stay.");
     }
@@ -1031,6 +1054,7 @@
   }
 
   function resetForm(suggestedStartDate = "") {
+    editingStay = null;
     els.form.reset();
     els.stayId.value = "";
     els.startDateInput.value = suggestedStartDate;
@@ -1052,6 +1076,117 @@
   async function loadStays() {
     state.stays = await db.stays.toArray();
     render();
+    await renderSyncConflicts();
+  }
+
+  function renderSyncStatus(status) {
+    syncStatus = status;
+    const busy = status.connecting || status.syncing;
+    els.syncButton.hidden = !status.configured;
+    els.syncButton.disabled = busy || !status.configured || (!status.ready && !status.error);
+    let syncMessage;
+    if (status.connecting) {
+      els.syncButton.textContent = "Connecting...";
+      syncMessage = "Signing in...";
+    } else if (status.syncing) {
+      els.syncButton.textContent = "Syncing...";
+      syncMessage = "Syncing with your storage account...";
+    } else {
+      els.syncButton.textContent = status.connected ? "Sync now" : `Reconnect ${status.providerName}`;
+      if (!status.connected) {
+        syncMessage = "Reconnect your storage account to sync.";
+      } else if (status.lastSyncedAt) {
+        syncMessage = `Last synced ${new Date(status.lastSyncedAt).toLocaleString()}.`;
+      } else {
+        syncMessage = "Ready to sync.";
+      }
+      if (status.pending) {
+        syncMessage += " Changes are waiting to sync.";
+      }
+    }
+    els.syncStatus.textContent = status.error || syncMessage;
+    els.signOutButton.disabled = status.connecting;
+    els.automaticSyncInput.disabled = !status.signedIn;
+    els.automaticSyncInput.checked = status.automatic;
+    els.settingsEmail.textContent = status.email;
+    els.settingsProvider.textContent = status.providerName;
+    let accountMessage = "";
+    if (status.connecting) {
+      accountMessage = "Signing in...";
+    } else if (!status.providers.some((provider) => provider.configured)) {
+      accountMessage = "Sign-in is not configured for this site.";
+    } else if (!status.providers.some((provider) => provider.ready)) {
+      accountMessage = "Loading sign-in...";
+    }
+    els.accountStatus.textContent = status.error || accountMessage;
+    for (const provider of status.providers) {
+      let button = document.getElementById(`provider-${provider.id}`);
+      if (!button) {
+        button = document.createElement("button");
+        button.id = `provider-${provider.id}`;
+        button.type = "button";
+        button.className = "button secondary";
+        button.addEventListener("click", async () => {
+          if (await syncEngine.connect(provider.id)) {
+            window.location.hash = "#settings";
+          }
+        });
+        els.providerOptions.append(button);
+      }
+      button.hidden = !provider.configured;
+      button.disabled = busy || !provider.configured || (!provider.ready && !provider.error);
+      button.textContent = !provider.ready && provider.error ? `Retry ${provider.name}` : provider.signInLabel;
+    }
+    renderAccountNavigation();
+    renderPage();
+  }
+
+  function renderAccountNavigation() {
+    els.accountLink.hidden = !syncStatus.providers?.some((provider) => provider.configured);
+    els.accountLabel.textContent = syncStatus.signedIn ? syncStatus.email || "Account" : "Sign in";
+    els.accountLink.href = syncStatus.signedIn ? "#settings" : "#account";
+    els.accountLink.title = syncStatus.signedIn ? "Account settings" : "Sign in";
+    els.accountAttention.hidden = !syncStatus.signedIn || !(syncStatus.error
+      || !syncStatus.connected || syncStatus.pending || !els.syncConflicts.hidden);
+  }
+
+  async function renderSyncConflicts() {
+    const conflicts = await syncEngine.getConflicts();
+    els.syncConflicts.hidden = !conflicts.length;
+    els.syncConflictList.replaceChildren();
+    for (const conflict of conflicts) {
+      const group = document.createElement("div");
+      group.className = "sync-conflict";
+      const title = document.createElement("h3");
+      const live = conflict.versions.find((version) => version.record);
+      title.textContent = `${live.record.country}, ${formatDateRange(live.record)}`;
+      group.append(title);
+      for (const version of conflict.versions) {
+        const option = document.createElement("div");
+        option.className = "sync-version";
+        const details = document.createElement("p");
+        details.textContent = version.record
+          ? `${version.record.country}, ${formatDateRange(version.record)}${version.record.notes ? `\n${version.record.notes}` : ""}`
+          : "Deleted on another device";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "button secondary compact";
+        button.textContent = version.record ? "Keep this version" : "Keep deletion";
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          try {
+            await syncEngine.resolveConflict(conflict, version);
+          } catch (error) {
+            button.disabled = false;
+            showToast(error.message || "Could not resolve this conflict.");
+          }
+        });
+        option.append(details, button);
+        group.append(option);
+      }
+      els.syncConflictList.append(group);
+    }
+    renderAccountNavigation();
   }
 
   function render() {
@@ -1064,12 +1199,18 @@
   }
 
   function renderPage() {
-    const mapOpen = window.location.hash === "#map";
-    els.dashboardPage.hidden = mapOpen;
+    const route = window.location.hash;
+    const mapOpen = route === "#map";
+    const accountRoute = route === "#account" || route === "#settings";
+    const settingsOpen = accountRoute && Boolean(syncStatus.signedIn);
+    els.dashboardPage.hidden = mapOpen || accountRoute;
     els.mapPage.hidden = !mapOpen;
-    document.title = mapOpen ? "Map | Country Days" : "Country Days";
-    [els.dashboardLink, els.mapLink].forEach((link) => link.removeAttribute("aria-current"));
-    (mapOpen ? els.mapLink : els.dashboardLink).setAttribute("aria-current", "page");
+    els.accountPage.hidden = !accountRoute || settingsOpen;
+    els.settingsPage.hidden = !settingsOpen;
+    document.title = settingsOpen ? "Settings | Country Days"
+      : accountRoute ? "Sign in | Country Days" : mapOpen ? "Map | Country Days" : "Country Days";
+    [els.dashboardLink, els.mapLink, els.accountLink].forEach((link) => link.removeAttribute("aria-current"));
+    (accountRoute ? els.accountLink : mapOpen ? els.mapLink : els.dashboardLink).setAttribute("aria-current", "page");
     if (mapOpen) {
       renderMap();
       if (!state.mapData && !state.mapLoading) {
@@ -1948,6 +2089,7 @@
   }
 
   function editStay(stay) {
+    editingStay = stay;
     els.stayId.value = stay.id;
     els.countryInput.value = stay.country;
     els.startDateInput.value = stay.startDate;
@@ -1965,12 +2107,11 @@
       return;
     }
 
-    await db.stays.delete(stay.id);
+    await syncEngine.deleteStay(stay);
     if (Number(els.stayId.value) === stay.id) {
       resetForm();
     }
     showToast("Stay deleted.");
-    await loadStays();
   }
 
   async function exportCsv() {
@@ -2029,7 +2170,7 @@
       });
 
       if (records.length) {
-        await db.stays.bulkAdd(records);
+        await syncEngine.importStays(records);
       }
 
       await loadStays();

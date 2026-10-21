@@ -19,6 +19,12 @@ module.exports = [
     },
   },
   {
+    files: ["tests/**/*.cjs"],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+  {
     files: ["**/service-worker.js"],
     languageOptions: {
       globals: {

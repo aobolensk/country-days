@@ -4,6 +4,8 @@ const CORE_ASSETS = [
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./sync.js",
+  "./google-drive.js",
   "./manifest.webmanifest",
   "./icons/icon.svg"
 ];
@@ -30,7 +32,9 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
-  if (request.method !== "GET") {
+  const url = new URL(request.url);
+  if (request.method !== "GET" || request.headers.has("Authorization") || request.cache === "no-store"
+    || url.origin === "https://www.googleapis.com" || url.origin === "https://accounts.google.com") {
     return;
   }
 
