@@ -2012,7 +2012,20 @@
 
     const days = document.createElement("span");
     days.className = "route-days";
-    days.textContent = `${formatNumber(daysForStay(stay))} days`;
+    const progress = getStayProgress(stay, status);
+    days.textContent = progress
+      ? `${formatNumber(progress.elapsedDays)} of ${formatNumber(progress.totalDays)} days (${progress.percent}%)`
+      : `${formatNumber(daysForStay(stay))} days`;
+    if (progress) {
+      line.classList.add("route-line-progress");
+      line.style.setProperty("--stay-progress", `${progress.percent}%`);
+      line.setAttribute("role", "progressbar");
+      line.setAttribute("aria-label", `${canonicalPlaceName(stay.country)} stay progress`);
+      line.setAttribute("aria-valuemin", "0");
+      line.setAttribute("aria-valuemax", "100");
+      line.setAttribute("aria-valuenow", String(progress.percent));
+      line.setAttribute("aria-valuetext", `${progress.elapsedDays} of ${progress.totalDays} days elapsed`);
+    }
     line.appendChild(days);
 
     const end = document.createElement("span");
@@ -2046,15 +2059,29 @@
 
     top.append(country, pill);
     route.append(start, line, end);
+    main.append(top, route);
     if (stay.notes) {
       meta.appendChild(notes);
     }
-    main.append(top, route);
     if (stay.notes) {
       main.appendChild(meta);
     }
     row.append(marker, main, actions);
     return row;
+  }
+
+  function getStayProgress(stay, status) {
+    if (status !== "current" || !stay.endDate) {
+      return null;
+    }
+
+    const totalDays = daysForStay(stay);
+    const elapsedDays = Math.min(daysBetweenInclusive(stay.startDate, todayIso()), totalDays);
+    return {
+      elapsedDays,
+      totalDays,
+      percent: Math.round((elapsedDays / totalDays) * 100)
+    };
   }
 
   function getFilteredStays() {

@@ -1057,6 +1057,24 @@ select {
   background: var(--surface-raised);
 }
 
+.route-line-progress::before {
+  height: 1px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.route-line-progress::after {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: var(--stay-progress);
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), var(--green));
+  content: "";
+  transform: translateY(-50%);
+}
+
 .stay-meta {
   flex-wrap: wrap;
   color: var(--muted);
