@@ -656,6 +656,8 @@
     els.mapCountrySelect = document.getElementById("mapCountrySelect");
     els.mapCountryTitle = document.getElementById("mapCountryTitle");
     els.mapCountryDetail = document.getElementById("mapCountryDetail");
+    els.mapYearBreakdown = document.getElementById("mapYearBreakdown");
+    els.mapYearList = document.getElementById("mapYearList");
     els.mapStayList = document.getElementById("mapStayList");
     els.mapLegendLabel = document.getElementById("mapLegendLabel");
     els.syncButton = document.getElementById("syncButton");
@@ -1531,6 +1533,8 @@
     const place = key ? state.mapData?.places.find((mapPlace) => mapPlace.code === key) : undefined;
     const country = item?.country || (place ? mapPlaceLabel(place) : "");
     els.mapCountryTitle.textContent = country ? countryLabel(country) : "Explore the map";
+    els.mapYearBreakdown.hidden = true;
+    els.mapYearList.replaceChildren();
     els.mapStayList.replaceChildren();
 
     if (!country) {
@@ -1545,6 +1549,21 @@
 
     const currentCount = item.visits.filter((stay) => getStayStatus(stay) === "current").length;
     const visitCount = item.visits.length;
+    const yearTotals = buildMapYearTotals(item.visits);
+    if (yearTotals.length) {
+      const fragment = document.createDocumentFragment();
+      yearTotals.forEach(({ year, days }) => {
+        const row = document.createElement("li");
+        const yearLabel = document.createElement("span");
+        yearLabel.textContent = String(year);
+        const daysLabel = document.createElement("span");
+        daysLabel.textContent = `${formatNumber(days)} day${days === 1 ? "" : "s"}`;
+        row.append(yearLabel, daysLabel);
+        fragment.appendChild(row);
+      });
+      els.mapYearList.appendChild(fragment);
+      els.mapYearBreakdown.hidden = false;
+    }
     const visitLabel = `${formatNumber(item.days)} day${item.days === 1 ? "" : "s"} across ${formatNumber(visitCount)} visit${visitCount === 1 ? "" : "s"}`;
     const currentLabel = currentCount ? `${currentCount} current stay${currentCount === 1 ? "" : "s"}` : "";
     const upcomingLabel = item.upcoming.length
@@ -1569,6 +1588,30 @@
     stays.forEach(({ stay, status }) => {
       els.mapStayList.appendChild(renderMapStay(stay, status));
     });
+  }
+
+  function buildMapYearTotals(stays) {
+    const today = todayIso();
+    const todayOrdinal = dateOrdinal(today);
+    const daysByYear = new Map();
+
+    stays.forEach((stay) => {
+      const start = dateOrdinal(stay.startDate);
+      const end = Math.min(dateOrdinal(stay.endDate || today), todayOrdinal);
+      for (let ordinal = start; ordinal <= end; ordinal += 1) {
+        const year = new Date(ordinal * MS_PER_DAY).getUTCFullYear();
+        let days = daysByYear.get(year);
+        if (!days) {
+          days = new Set();
+          daysByYear.set(year, days);
+        }
+        days.add(ordinal);
+      }
+    });
+
+    return [...daysByYear.entries()]
+      .map(([year, days]) => ({ year, days: days.size }))
+      .sort((a, b) => b.year - a.year);
   }
 
   function renderMapStay(stay, status) {
