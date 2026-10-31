@@ -1390,7 +1390,7 @@
         name: properties.NAME || properties.ADMIN || "Unknown place",
         path,
         point,
-        small: Math.min(maxX - minX, maxY - minY) < 3
+        small: Math.min(maxX - minX, maxY - minY) < 5
       }];
     });
 
@@ -1427,15 +1427,24 @@
       path.appendChild(title);
     });
     state.mapData.places.filter((place) => place.small && place.code).forEach((place) => {
-      const marker = document.createElementNS(svgNamespace, "circle");
+      const marker = document.createElementNS(svgNamespace, "g");
       marker.setAttribute("class", "map-country map-marker");
-      marker.setAttribute("cx", place.point[0]);
-      marker.setAttribute("cy", place.point[1]);
-      marker.setAttribute("r", String(MAP_MARKER_RADIUS));
       marker.dataset.place = place.code;
       marker.dataset.name = mapPlaceLabel(place);
+      const hitArea = document.createElementNS(svgNamespace, "circle");
+      hitArea.setAttribute("class", "map-marker-hit-area");
+      hitArea.setAttribute("cx", place.point[0]);
+      hitArea.setAttribute("cy", place.point[1]);
+      hitArea.setAttribute("r", String(MAP_MARKER_RADIUS));
+      marker.appendChild(hitArea);
+      const visual = document.createElementNS(svgNamespace, "circle");
+      visual.setAttribute("class", "map-marker-visual");
+      visual.setAttribute("cx", place.point[0]);
+      visual.setAttribute("cy", place.point[1]);
+      visual.setAttribute("r", String(MAP_MARKER_RADIUS));
+      marker.appendChild(visual);
       const title = document.createElementNS(svgNamespace, "title");
-      title.textContent = marker.dataset.name;
+      title.textContent = mapPlaceLabel(place);
       marker.appendChild(title);
       svg.appendChild(marker);
     });
@@ -1490,7 +1499,8 @@
     if (svg) {
       renderMapView(svg);
       svg.querySelectorAll(".map-marker").forEach((marker) => {
-        marker.setAttribute("r", String(MAP_MARKER_RADIUS / state.mapZoom));
+        const radius = String(MAP_MARKER_RADIUS / state.mapZoom);
+        marker.querySelectorAll("circle").forEach((circle) => circle.setAttribute("r", radius));
       });
     }
     els.mapCanvas.classList.toggle("zoomed", state.mapZoom > 1);
@@ -1632,7 +1642,7 @@
         shape.removeAttribute("aria-label");
         shape.querySelector("title").textContent = shape.dataset.name;
         if (shape.classList.contains("map-marker")) {
-          shape.style.display = item ? "" : "none";
+          shape.querySelector(".map-marker-visual").style.display = item ? "" : "none";
         }
         if (item?.days) {
           const fraction = maxDays > 1 ? (item.days - 1) / (maxDays - 1) : 1;

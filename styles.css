@@ -692,8 +692,27 @@ select {
   outline: none;
 }
 
-.map-marker {
-  stroke-width: 1;
+.map-marker-hit-area {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 16px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+}
+
+.map-marker-visual {
+  fill: var(--map-color, #303b4b);
+  stroke: #718096;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.map-marker:hover .map-marker-visual,
+.map-marker:focus .map-marker-visual,
+.map-marker.selected .map-marker-visual {
+  stroke: var(--ink);
+  stroke-width: 1.5px;
 }
 
 .map-message:empty {
