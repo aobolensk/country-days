@@ -6,8 +6,8 @@
   const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
   const DB_NAME = "country-days-db";
   const MAP_DATA_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_map_units.geojson";
-  const MIN_MAP_ZOOM = 0.75;
-  const MAX_MAP_ZOOM = 3.5;
+  const MIN_MAP_ZOOM = 1;
+  const MAX_MAP_ZOOM = 36;
   const MAP_ZOOM_STEP = 0.25;
   const MAP_VIEWBOX_WIDTH = 1000;
   const MAP_VIEWBOX_HEIGHT = 520;
