@@ -234,7 +234,13 @@
             </label>
           </div>
 
-          <div class="map-canvas" id="mapCanvas" aria-busy="false"></div>
+          <div class="map-viewport">
+            <div class="map-canvas" id="mapCanvas" aria-busy="false"></div>
+            <div class="map-zoom-controls" role="group" aria-label="Map zoom">
+              <button id="mapZoomIn" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+              <button id="mapZoomOut" type="button" aria-label="Zoom out" title="Zoom out">-</button>
+            </div>
+          </div>
           <p class="muted-text map-message" id="mapMessage" role="status" aria-live="polite"></p>
           <button class="button secondary compact" id="mapRetryButton" type="button" hidden>Retry map</button>
 

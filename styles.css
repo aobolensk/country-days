@@ -583,6 +583,11 @@ select {
   width: auto;
 }
 
+.map-viewport {
+  position: relative;
+  min-width: 0;
+}
+
 .map-canvas {
   min-height: 240px;
   overflow: hidden;
@@ -591,10 +596,64 @@ select {
   background: #0b0e14;
 }
 
+.map-canvas.zoomed {
+  touch-action: none;
+}
+
+.map-canvas.zoomed .map-country {
+  cursor: grab;
+}
+
+.map-canvas.zoomed:active .map-country {
+  cursor: grabbing;
+}
+
+.map-zoom-controls {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  display: grid;
+  width: 42px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.map-zoom-controls button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.map-zoom-controls button + button {
+  border-top: 1px solid var(--line);
+}
+
+.map-zoom-controls button:hover {
+  background: var(--surface-soft);
+}
+
+.map-zoom-controls button:focus-visible {
+  position: relative;
+  outline: 2px solid var(--primary-strong);
+  outline-offset: -2px;
+}
+
 .world-map {
   display: block;
   width: 100%;
   height: auto;
+  margin-inline: auto;
+  background: #101b2a;
 }
 
 .map-ocean {
@@ -610,9 +669,10 @@ select {
 
 .map-country {
   fill: var(--map-color, #303b4b);
-  stroke: #0b0e14;
-  stroke-width: 0.5;
+  stroke: #718096;
+  stroke-width: 0.75;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
   cursor: help;
 }
 

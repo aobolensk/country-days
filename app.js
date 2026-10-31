@@ -6,6 +6,13 @@
   const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
   const DB_NAME = "country-days-db";
   const MAP_DATA_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_map_units.geojson";
+  const MIN_MAP_ZOOM = 0.75;
+  const MAX_MAP_ZOOM = 3.5;
+  const MAP_ZOOM_STEP = 0.25;
+  const MAP_VIEWBOX_WIDTH = 1000;
+  const MAP_VIEWBOX_HEIGHT = 520;
+  const MAP_MARKER_RADIUS = 4.5;
+  const MAP_WHEEL_ZOOM_RATE = 0.0015;
 
   const COUNTRIES = [
     "Afghanistan",
@@ -563,6 +570,11 @@
     mapData: null,
     mapLoading: false,
     mapCountry: "",
+    mapZoom: 1,
+    mapCenterX: MAP_VIEWBOX_WIDTH / 2,
+    mapCenterY: MAP_VIEWBOX_HEIGHT / 2,
+    mapPan: null,
+    mapPanMoved: false,
     mapTotals: new Map(),
     toastTimer: null
   };
@@ -578,6 +590,7 @@
 
   async function init() {
     cacheElements();
+    applyMapZoom();
     bindEvents();
     renderPage();
     registerServiceWorker();
@@ -654,6 +667,8 @@
     els.mapMessage = document.getElementById("mapMessage");
     els.mapRetryButton = document.getElementById("mapRetryButton");
     els.mapCountrySelect = document.getElementById("mapCountrySelect");
+    els.mapZoomOut = document.getElementById("mapZoomOut");
+    els.mapZoomIn = document.getElementById("mapZoomIn");
     els.mapCountryTitle = document.getElementById("mapCountryTitle");
     els.mapCountryDetail = document.getElementById("mapCountryDetail");
     els.mapYearBreakdown = document.getElementById("mapYearBreakdown");
@@ -680,15 +695,27 @@
   function bindEvents() {
     window.addEventListener("hashchange", renderPage);
     els.mapRetryButton.addEventListener("click", loadMap);
+    els.mapZoomOut.addEventListener("click", () => setMapZoom(state.mapZoom - MAP_ZOOM_STEP));
+    els.mapZoomIn.addEventListener("click", () => setMapZoom(state.mapZoom + MAP_ZOOM_STEP));
     els.mapCountrySelect.addEventListener("change", (event) => {
       selectMapCountry(event.target.value);
     });
     els.mapCanvas.addEventListener("click", (event) => {
+      if (state.mapPanMoved) {
+        state.mapPanMoved = false;
+        event.preventDefault();
+        return;
+      }
       const place = event.target.closest(".map-country");
       if (place) {
         selectMapCountry(place.dataset.place);
       }
     });
+    els.mapCanvas.addEventListener("pointerdown", startMapPan);
+    els.mapCanvas.addEventListener("pointermove", moveMapPan);
+    els.mapCanvas.addEventListener("pointerup", endMapPan);
+    els.mapCanvas.addEventListener("pointercancel", endMapPan);
+    els.mapCanvas.addEventListener("wheel", zoomMapWithWheel, { passive: false });
     els.mapCanvas.addEventListener("keydown", (event) => {
       const place = event.target.closest(".map-country.recorded");
       if (place && (event.key === "Enter" || event.key === " ")) {
@@ -1377,7 +1404,7 @@
   function drawWorldMap() {
     const svgNamespace = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(svgNamespace, "svg");
-    svg.setAttribute("viewBox", "0 0 1000 520");
+    svg.setAttribute("viewBox", `0 0 ${MAP_VIEWBOX_WIDTH} ${MAP_VIEWBOX_HEIGHT}`);
     svg.setAttribute("class", "world-map");
     svg.setAttribute("role", "group");
     svg.setAttribute("aria-label", "World map of visited, unvisited, and upcoming travel places. Hover on a country for stay details or choose one from the menu.");
@@ -1404,7 +1431,7 @@
       marker.setAttribute("class", "map-country map-marker");
       marker.setAttribute("cx", place.point[0]);
       marker.setAttribute("cy", place.point[1]);
-      marker.setAttribute("r", "3");
+      marker.setAttribute("r", String(MAP_MARKER_RADIUS));
       marker.dataset.place = place.code;
       marker.dataset.name = mapPlaceLabel(place);
       const title = document.createElementNS(svgNamespace, "title");
@@ -1413,6 +1440,124 @@
       svg.appendChild(marker);
     });
     els.mapCanvas.replaceChildren(svg);
+    applyMapZoom();
+  }
+
+  function setMapZoom(zoom, anchor = null) {
+    const nextZoom = Math.min(MAX_MAP_ZOOM, Math.max(MIN_MAP_ZOOM, zoom));
+    if (nextZoom === state.mapZoom) {
+      return;
+    }
+    const previousZoom = state.mapZoom;
+    if (anchor && nextZoom > 1) {
+      const svg = els.mapCanvas.querySelector(".world-map");
+      const bounds = svg.getBoundingClientRect();
+      const fractionX = (anchor.x - bounds.left) / bounds.width - 0.5;
+      const fractionY = (anchor.y - bounds.top) / bounds.height - 0.5;
+      state.mapCenterX += fractionX * (MAP_VIEWBOX_WIDTH / previousZoom - MAP_VIEWBOX_WIDTH / nextZoom);
+      state.mapCenterY += fractionY * (MAP_VIEWBOX_HEIGHT / previousZoom - MAP_VIEWBOX_HEIGHT / nextZoom);
+    }
+    state.mapZoom = nextZoom;
+    if (nextZoom <= 1) {
+      state.mapCenterX = MAP_VIEWBOX_WIDTH / 2;
+      state.mapCenterY = MAP_VIEWBOX_HEIGHT / 2;
+    } else {
+      constrainMapCenter();
+    }
+    applyMapZoom();
+  }
+
+  function zoomMapWithWheel(event) {
+    if (!state.mapData) {
+      return;
+    }
+    let delta = event.deltaY;
+    if (event.deltaMode === 1) {
+      delta *= 16;
+    } else if (event.deltaMode === 2) {
+      delta *= window.innerHeight;
+    }
+    const nextZoom = state.mapZoom * Math.exp(-delta * MAP_WHEEL_ZOOM_RATE);
+    if (Math.min(MAX_MAP_ZOOM, Math.max(MIN_MAP_ZOOM, nextZoom)) === state.mapZoom) {
+      return;
+    }
+    event.preventDefault();
+    setMapZoom(nextZoom, { x: event.clientX, y: event.clientY });
+  }
+
+  function applyMapZoom() {
+    const svg = els.mapCanvas.querySelector(".world-map");
+    if (svg) {
+      renderMapView(svg);
+      svg.querySelectorAll(".map-marker").forEach((marker) => {
+        marker.setAttribute("r", String(MAP_MARKER_RADIUS / state.mapZoom));
+      });
+    }
+    els.mapCanvas.classList.toggle("zoomed", state.mapZoom > 1);
+    els.mapZoomOut.disabled = state.mapZoom <= MIN_MAP_ZOOM;
+    els.mapZoomIn.disabled = state.mapZoom >= MAX_MAP_ZOOM;
+  }
+
+  function renderMapView(svg) {
+    const width = MAP_VIEWBOX_WIDTH / state.mapZoom;
+    const height = MAP_VIEWBOX_HEIGHT / state.mapZoom;
+    svg.setAttribute("viewBox", `${state.mapCenterX - width / 2} ${state.mapCenterY - height / 2} ${width} ${height}`);
+  }
+
+  function constrainMapCenter() {
+    const width = MAP_VIEWBOX_WIDTH / state.mapZoom;
+    const height = MAP_VIEWBOX_HEIGHT / state.mapZoom;
+    state.mapCenterX = Math.min(MAP_VIEWBOX_WIDTH - width / 2, Math.max(width / 2, state.mapCenterX));
+    state.mapCenterY = Math.min(MAP_VIEWBOX_HEIGHT - height / 2, Math.max(height / 2, state.mapCenterY));
+  }
+
+  function startMapPan(event) {
+    if (state.mapZoom <= 1 || event.button !== 0) {
+      return;
+    }
+    state.mapPan = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      centerX: state.mapCenterX,
+      centerY: state.mapCenterY
+    };
+    state.mapPanMoved = false;
+    els.mapCanvas.setPointerCapture(event.pointerId);
+  }
+
+  function moveMapPan(event) {
+    if (!state.mapPan || event.pointerId !== state.mapPan.pointerId) {
+      return;
+    }
+    const deltaX = event.clientX - state.mapPan.startX;
+    const deltaY = event.clientY - state.mapPan.startY;
+    if (!state.mapPanMoved && Math.hypot(deltaX, deltaY) < 4) {
+      return;
+    }
+    state.mapPanMoved = true;
+    const svg = els.mapCanvas.querySelector(".world-map");
+    const bounds = svg.getBoundingClientRect();
+    state.mapCenterX = state.mapPan.centerX - deltaX * (MAP_VIEWBOX_WIDTH / state.mapZoom / bounds.width);
+    state.mapCenterY = state.mapPan.centerY - deltaY * (MAP_VIEWBOX_HEIGHT / state.mapZoom / bounds.height);
+    constrainMapCenter();
+    renderMapView(svg);
+  }
+
+  function endMapPan(event) {
+    if (!state.mapPan || event.pointerId !== state.mapPan.pointerId) {
+      return;
+    }
+    const wasMoved = state.mapPanMoved;
+    state.mapPan = null;
+    if (els.mapCanvas.hasPointerCapture(event.pointerId)) {
+      els.mapCanvas.releasePointerCapture(event.pointerId);
+    }
+    if (wasMoved) {
+      window.setTimeout(() => {
+        state.mapPanMoved = false;
+      }, 0);
+    }
   }
 
   function renderMap() {
