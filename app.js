@@ -12,6 +12,8 @@
   const MAP_VIEWBOX_WIDTH = 1000;
   const MAP_VIEWBOX_HEIGHT = 520;
   const MAP_MARKER_RADIUS = 4.5;
+  const MAP_MARKER_FADE_START_PX = 7;
+  const MAP_MARKER_FADE_END_PX = 16;
   const MAP_WHEEL_ZOOM_RATE = 0.0015;
 
   const COUNTRIES = [
@@ -694,6 +696,11 @@
 
   function bindEvents() {
     window.addEventListener("hashchange", renderPage);
+    window.addEventListener("resize", () => {
+      if (!els.mapPage.hidden) {
+        applyMapZoom();
+      }
+    });
     els.mapRetryButton.addEventListener("click", loadMap);
     els.mapZoomOut.addEventListener("click", () => setMapZoom(state.mapZoom - MAP_ZOOM_STEP));
     els.mapZoomIn.addEventListener("click", () => setMapZoom(state.mapZoom + MAP_ZOOM_STEP));
@@ -1242,6 +1249,7 @@
     (accountRoute ? els.accountLink : mapOpen ? els.mapLink : els.dashboardLink).setAttribute("aria-current", "page");
     if (mapOpen) {
       renderMap();
+      applyMapZoom();
       if (!state.mapData && !state.mapLoading) {
         loadMap();
       }
@@ -1384,13 +1392,14 @@
       const point = hasLabelPoint
         ? project([labelLongitude, labelLatitude])
         : [(minX + maxX) / 2, (minY + maxY) / 2];
+      const minDimension = Math.min(maxX - minX, maxY - minY);
 
       return [{
         code: properties.ISO_A2_EH && properties.ISO_A2_EH !== "-99" ? properties.ISO_A2_EH : "",
         name: properties.NAME || properties.ADMIN || "Unknown place",
         path,
         point,
-        small: Math.min(maxX - minX, maxY - minY) < 5
+        minDimension
       }];
     });
 
@@ -1426,11 +1435,13 @@
       title.textContent = path.dataset.name;
       path.appendChild(title);
     });
-    state.mapData.places.filter((place) => place.small && place.code).forEach((place) => {
+    state.mapData.places.filter((place) => place.minDimension < 5 && place.code).forEach((place) => {
       const marker = document.createElementNS(svgNamespace, "g");
       marker.setAttribute("class", "map-country map-marker");
       marker.dataset.place = place.code;
-      marker.dataset.name = mapPlaceLabel(place);
+      const name = mapPlaceLabel(place);
+      marker.dataset.name = name;
+      marker.dataset.minDimension = place.minDimension;
       const hitArea = document.createElementNS(svgNamespace, "circle");
       hitArea.setAttribute("class", "map-marker-hit-area");
       hitArea.setAttribute("cx", place.point[0]);
@@ -1444,7 +1455,7 @@
       visual.setAttribute("r", String(MAP_MARKER_RADIUS));
       marker.appendChild(visual);
       const title = document.createElementNS(svgNamespace, "title");
-      title.textContent = mapPlaceLabel(place);
+      title.textContent = name;
       marker.appendChild(title);
       svg.appendChild(marker);
     });
@@ -1498,9 +1509,14 @@
     const svg = els.mapCanvas.querySelector(".world-map");
     if (svg) {
       renderMapView(svg);
+      const pixelsPerMapUnit = svg.getBoundingClientRect().width / (MAP_VIEWBOX_WIDTH / state.mapZoom);
       svg.querySelectorAll(".map-marker").forEach((marker) => {
         const radius = String(MAP_MARKER_RADIUS / state.mapZoom);
         marker.querySelectorAll("circle").forEach((circle) => circle.setAttribute("r", radius));
+        const size = Number(marker.dataset.minDimension) * pixelsPerMapUnit;
+        const fade = (size - MAP_MARKER_FADE_START_PX) / (MAP_MARKER_FADE_END_PX - MAP_MARKER_FADE_START_PX);
+        const opacity = 1 - Math.max(0, Math.min(1, fade));
+        marker.querySelector(".map-marker-visual").style.opacity = String(opacity);
       });
     }
     els.mapCanvas.classList.toggle("zoomed", state.mapZoom > 1);
