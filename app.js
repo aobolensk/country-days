@@ -15,6 +15,8 @@
   const MAP_MARKER_FADE_START_PX = 7;
   const MAP_MARKER_FADE_END_PX = 16;
   const MAP_WHEEL_ZOOM_RATE = 0.0015;
+  const MAP_TRACKPAD_ZOOM_RATE = 0.004;
+  const MAP_TRACKPAD_DELTA_LIMIT = 60;
 
   const COUNTRIES = [
     "Afghanistan",
@@ -1466,7 +1468,7 @@
   function setMapZoom(zoom, anchor = null) {
     const nextZoom = Math.min(MAX_MAP_ZOOM, Math.max(MIN_MAP_ZOOM, zoom));
     if (nextZoom === state.mapZoom) {
-      return;
+      return false;
     }
     const previousZoom = state.mapZoom;
     if (anchor && nextZoom > 1) {
@@ -1485,6 +1487,7 @@
       constrainMapCenter();
     }
     applyMapZoom();
+    return true;
   }
 
   function zoomMapWithWheel(event) {
@@ -1497,12 +1500,13 @@
     } else if (event.deltaMode === 2) {
       delta *= window.innerHeight;
     }
-    const nextZoom = state.mapZoom * Math.exp(-delta * MAP_WHEEL_ZOOM_RATE);
-    if (Math.min(MAX_MAP_ZOOM, Math.max(MIN_MAP_ZOOM, nextZoom)) === state.mapZoom) {
-      return;
+    const zoomRate = event.deltaMode === 0 && Math.abs(event.deltaY) < MAP_TRACKPAD_DELTA_LIMIT
+      ? MAP_TRACKPAD_ZOOM_RATE
+      : MAP_WHEEL_ZOOM_RATE;
+    const nextZoom = state.mapZoom * Math.exp(-delta * zoomRate);
+    if (setMapZoom(nextZoom, { x: event.clientX, y: event.clientY })) {
+      event.preventDefault();
     }
-    event.preventDefault();
-    setMapZoom(nextZoom, { x: event.clientX, y: event.clientY });
   }
 
   function applyMapZoom() {
