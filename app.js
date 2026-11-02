@@ -604,6 +604,7 @@
     stays: [],
     calendarOpen: false,
     areaBreakdownOpen: false,
+    selectedYear: "",
     calendarMonth: todayIso().slice(0, 7),
     countryBreakdownLimit: BREAKDOWN_PAGE_SIZE,
     yearBreakdownLimit: BREAKDOWN_PAGE_SIZE,
@@ -681,6 +682,7 @@
     els.submitButton = document.getElementById("submitButton");
     els.cancelEditButton = document.getElementById("cancelEditButton");
     els.statsGrid = document.getElementById("statsGrid");
+    els.yearFilter = document.getElementById("yearFilter");
     els.calendarToggleButton = document.getElementById("calendarToggleButton");
     els.calendarPanel = document.getElementById("calendarPanel");
     els.areaToggleButton = document.getElementById("areaToggleButton");
@@ -816,6 +818,15 @@
     });
     els.calendarToggleButton.addEventListener("click", toggleCalendar);
     els.areaToggleButton.addEventListener("click", toggleAreaBreakdown);
+    els.yearFilter.addEventListener("change", (event) => {
+      state.selectedYear = event.target.value;
+      state.calendarMonth = state.selectedYear
+        ? `${state.selectedYear}-01`
+        : todayIso().slice(0, 7);
+      renderCalendar();
+      renderBreakdowns();
+      renderTable();
+    });
     els.countryBreakdownMore.addEventListener("click", () => {
       state.countryBreakdownLimit += BREAKDOWN_PAGE_SIZE;
       renderBreakdowns();
@@ -1277,6 +1288,7 @@
   }
 
   function render() {
+    renderYearFilter();
     renderStats();
     renderCalendarVisibility();
     renderCalendar();
@@ -1878,6 +1890,18 @@
     return article;
   }
 
+  function renderYearFilter() {
+    const years = getAvailableYears(state.stays);
+    if (state.selectedYear && !years.includes(state.selectedYear)) {
+      state.selectedYear = "";
+    }
+
+    const options = [new Option("All years", "")];
+    years.forEach((year) => options.push(new Option(year, year)));
+    els.yearFilter.replaceChildren(...options);
+    els.yearFilter.value = state.selectedYear;
+  }
+
   function renderStats() {
     const stats = buildStats(state.stays);
     const cards = [
@@ -1954,24 +1978,25 @@
   }
 
   function renderBreakdowns() {
+    const stays = getDashboardStays();
     renderBarList(
       els.countryBreakdown,
       els.countryBreakdownMore,
-      buildCountryTotals(state.stays),
+      buildCountryTotals(stays),
       "No country totals yet.",
       state.countryBreakdownLimit
     );
     renderBarList(
       els.yearBreakdown,
       els.yearBreakdownMore,
-      buildYearTotals(state.stays),
+      buildYearTotals(stays),
       "No yearly totals yet.",
       state.yearBreakdownLimit
     );
     renderBarList(
       els.areaBreakdown,
       els.areaBreakdownMore,
-      buildAreaTotals(state.stays),
+      buildAreaTotals(stays),
       "No area totals yet.",
       state.areaBreakdownLimit
     );
@@ -2067,7 +2092,11 @@
   }
 
   function moveCalendarMonth(offset) {
-    state.calendarMonth = addMonths(state.calendarMonth, offset);
+    const nextMonth = addMonths(state.calendarMonth, offset);
+    if (state.selectedYear && nextMonth.slice(0, 4) !== state.selectedYear) {
+      return;
+    }
+    state.calendarMonth = nextMonth;
     renderCalendar();
   }
 
@@ -2099,6 +2128,10 @@
   }
 
   function renderCalendar() {
+    const month = Number(state.calendarMonth.slice(5, 7));
+    els.prevMonthButton.disabled = Boolean(state.selectedYear && month === 1);
+    els.nextMonthButton.disabled = Boolean(state.selectedYear && month === 12);
+
     if (!state.calendarOpen) {
       els.calendarGrid.replaceChildren();
       els.calendarMonthLabel.textContent = "";
@@ -2106,7 +2139,7 @@
       return;
     }
 
-    const days = buildCalendarDays(state.calendarMonth, state.stays);
+    const days = buildCalendarDays(state.calendarMonth, state.stays, state.selectedYear);
     const fragment = document.createDocumentFragment();
     let flaggedDays = 0;
     const flaggedCountries = new Set();
@@ -2176,7 +2209,7 @@
     return cell;
   }
 
-  function buildCalendarDays(month, stays) {
+  function buildCalendarDays(month, stays, selectedYear = "") {
     const monthStart = `${month}-01`;
     const monthStartOrdinal = dateOrdinal(monthStart);
     const firstWeekday = new Date(monthStartOrdinal * MS_PER_DAY).getUTCDay();
@@ -2189,7 +2222,9 @@
       return {
         iso,
         inCurrentMonth: iso.slice(0, 7) === month,
-        countries: countriesForDate(stays, ordinal)
+        countries: !selectedYear || iso.slice(0, 4) === selectedYear
+          ? countriesForDate(stays, ordinal)
+          : []
       };
     });
   }
@@ -2208,7 +2243,7 @@
 
   function renderTable() {
     const rows = getFilteredStays();
-    const dateGaps = findDateGaps(state.stays);
+    const dateGaps = findDateGaps(getStaysInSelectedYear());
     els.tableBody.replaceChildren();
     els.emptyState.hidden = state.stays.length > 0;
 
@@ -2261,7 +2296,7 @@
   function findDateGaps(stays) {
     const ordered = [...stays].sort((a, b) =>
       compareDates(a.startDate, b.startDate)
-      || compareDates(sortEndDate(a), sortEndDate(b))
+      || compareDates(effectiveStayEndDate(a), effectiveStayEndDate(b))
       || compareCountries(a, b)
     );
     const gaps = [];
@@ -2422,16 +2457,17 @@
   function getFilteredStays() {
     return state.stays
       .filter((stay) => {
+        const matchesYear = !state.selectedYear || stayOverlapsYear(stay, state.selectedYear);
         const matchesSearch = !state.search
           || stay.country.toLowerCase().includes(state.search)
           || (stay.notes || "").toLowerCase().includes(state.search);
         const matchesStatus = state.status === "all" || getStayStatus(stay) === state.status;
-        return matchesSearch && matchesStatus;
+        return matchesYear && matchesSearch && matchesStatus;
       })
       .sort((a, b) => {
         if (state.sort === "oldest") {
           return compareDates(a.startDate, b.startDate)
-            || compareDates(sortEndDate(a), sortEndDate(b))
+            || compareDates(effectiveStayEndDate(a), effectiveStayEndDate(b))
             || compareCountries(a, b);
         }
 
@@ -2441,13 +2477,78 @@
         }
 
         if (state.sort === "days") {
-          return daysForStay(b) - daysForStay(a)
+          return stayDaysForSelectedYear(b) - stayDaysForSelectedYear(a)
             || compareNewestDates(a, b);
         }
 
         return compareNewestDates(a, b)
           || compareCountries(a, b);
       });
+  }
+
+  function getAvailableYears(stays) {
+    const years = new Set();
+    const today = todayIso();
+    stays.forEach((stay) => {
+      const endDate = effectiveStayEndDate(stay, today);
+      const firstYear = Number(stay.startDate.slice(0, 4));
+      const lastYear = Number(endDate.slice(0, 4));
+      for (let year = firstYear; year <= lastYear; year += 1) {
+        years.add(String(year));
+      }
+    });
+    return [...years].sort((a, b) => Number(b) - Number(a));
+  }
+
+  function getStaysInSelectedYear() {
+    return state.selectedYear
+      ? state.stays.filter((stay) => stayOverlapsYear(stay, state.selectedYear))
+      : state.stays;
+  }
+
+  function getDashboardStays() {
+    if (!state.selectedYear) {
+      return state.stays;
+    }
+    return state.stays
+      .map((stay) => clipStayToYear(stay, state.selectedYear))
+      .filter(Boolean);
+  }
+
+  function stayOverlapsYear(stay, year) {
+    const yearStart = dateOrdinal(`${year}-01-01`);
+    const yearEnd = dateOrdinal(`${year}-12-31`);
+    const stayStart = dateOrdinal(stay.startDate);
+    const stayEnd = dateOrdinal(effectiveStayEndDate(stay));
+    return stayStart <= yearEnd && stayEnd >= yearStart;
+  }
+
+  function clipStayToYear(stay, year) {
+    const yearStart = dateOrdinal(`${year}-01-01`);
+    const yearEnd = dateOrdinal(`${year}-12-31`);
+    const stayStart = dateOrdinal(stay.startDate);
+    const today = todayIso();
+    const futureOpenStay = !stay.endDate && compareDates(stay.startDate, today) > 0;
+    const stayEnd = dateOrdinal(effectiveStayEndDate(stay, today));
+    const start = Math.max(stayStart, yearStart);
+    const end = Math.min(stayEnd, yearEnd);
+    if (start > end) {
+      return null;
+    }
+
+    return {
+      ...stay,
+      startDate: isoFromOrdinal(start),
+      endDate: futureOpenStay ? "" : isoFromOrdinal(end)
+    };
+  }
+
+  function stayDaysForSelectedYear(stay) {
+    if (!state.selectedYear) {
+      return daysForStay(stay);
+    }
+    const clippedStay = clipStayToYear(stay, state.selectedYear);
+    return clippedStay ? daysForStay(clippedStay) : 0;
   }
 
   function editStay(stay) {
@@ -2893,15 +2994,14 @@
 
   function compareNewestDates(a, b) {
     return compareDates(b.startDate, a.startDate)
-      || compareDates(sortEndDate(b), sortEndDate(a));
+      || compareDates(effectiveStayEndDate(b), effectiveStayEndDate(a));
   }
 
-  function sortEndDate(stay) {
+  function effectiveStayEndDate(stay, today = todayIso()) {
     if (stay.endDate) {
       return stay.endDate;
     }
 
-    const today = todayIso();
     return compareDates(stay.startDate, today) > 0 ? stay.startDate : today;
   }
 

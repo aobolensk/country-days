@@ -854,8 +854,23 @@ select {
 
 .calendar-toggle-row {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.year-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 760;
+}
+
+.year-filter select {
+  width: auto;
+  min-width: 118px;
 }
 
 .icon-toggle {
@@ -1488,6 +1503,7 @@ select {
 
   .calendar-toggle-row {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .calendar-controls {
