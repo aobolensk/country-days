@@ -2234,9 +2234,11 @@
     days.textContent = progress
       ? `${formatNumber(progress.elapsedDays)} of ${formatNumber(progress.totalDays)} days (${progress.percent}%)`
       : `${formatNumber(daysForStay(stay))} days`;
-    if (progress) {
+    if (progress || status === "upcoming") {
       line.classList.add("route-line-progress");
-      line.style.setProperty("--stay-progress", `${progress.percent}%`);
+      line.style.setProperty("--stay-progress", `${progress?.percent ?? 0}%`);
+    }
+    if (progress) {
       line.setAttribute("role", "progressbar");
       line.setAttribute("aria-label", `${canonicalPlaceName(stay.country)} stay progress`);
       line.setAttribute("aria-valuemin", "0");
