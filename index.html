@@ -124,7 +124,8 @@
           <div class="stats-grid" id="statsGrid"></div>
 
           <div class="calendar-toggle-row">
-            <button class="button secondary calendar-toggle" id="calendarToggleButton" type="button" aria-expanded="false" aria-controls="calendarPanel">Show calendar</button>
+            <button class="button secondary icon-toggle" id="calendarToggleButton" type="button" aria-label="Show calendar" data-tooltip="Show calendar" aria-expanded="false" aria-controls="calendarPanel">📅</button>
+            <button class="button secondary icon-toggle" id="areaToggleButton" type="button" aria-label="Show area totals" data-tooltip="Show area totals" aria-expanded="false" aria-controls="areaBreakdownPanel">🌐</button>
           </div>
 
           <section class="calendar-panel" id="calendarPanel" aria-labelledby="calendarTitle" hidden>
@@ -151,6 +152,17 @@
             </div>
             <div class="calendar-grid" id="calendarGrid"></div>
             <p class="calendar-summary" id="calendarSummary"></p>
+          </section>
+
+          <section class="analytics-panel" id="areaBreakdownPanel" aria-labelledby="areaBreakdownTitle" hidden>
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Travel areas</p>
+                <h2 id="areaBreakdownTitle">Days by area</h2>
+              </div>
+            </div>
+            <div class="bar-list" id="areaBreakdown"></div>
+            <button class="button secondary compact breakdown-more" id="areaBreakdownMore" type="button" aria-controls="areaBreakdown" hidden>Show more</button>
           </section>
 
           <section class="split-grid">

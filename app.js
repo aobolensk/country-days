@@ -275,6 +275,44 @@
   ];
 
   const PLACES = [...COUNTRIES, ...TERRITORIES].sort((a, b) => a.localeCompare(b));
+  const EU_COUNTRIES = [
+    "Austria",
+    "Belgium",
+    "Bulgaria",
+    "Croatia",
+    "Cyprus",
+    "Czechia",
+    "Denmark",
+    "Estonia",
+    "Finland",
+    "France",
+    "Germany",
+    "Greece",
+    "Hungary",
+    "Ireland",
+    "Italy",
+    "Latvia",
+    "Lithuania",
+    "Luxembourg",
+    "Malta",
+    "Netherlands",
+    "Poland",
+    "Portugal",
+    "Romania",
+    "Slovakia",
+    "Slovenia",
+    "Spain",
+    "Sweden"
+  ];
+  const TRAVEL_AREAS = [
+    makeTravelArea("Schengen Area", [
+      "Austria", "Belgium", "Bulgaria", "Croatia", "Czechia", "Denmark", "Estonia", "Finland", "France", "Germany",
+      "Greece", "Hungary", "Iceland", "Italy", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta",
+      "Netherlands", "Norway", "Poland", "Portugal", "Romania", "Slovakia", "Slovenia", "Spain", "Sweden", "Switzerland"
+    ], "🛂"),
+    makeTravelArea("European Union", EU_COUNTRIES, "🇪🇺"),
+    makeTravelArea("Common Travel Area", ["United Kingdom", "Ireland", "Jersey", "Guernsey", "Isle of Man"], "🇬🇧 🇮🇪")
+  ];
 
   const COUNTRY_CODES = {
     "afghanistan": "AF",
@@ -565,9 +603,11 @@
   const state = {
     stays: [],
     calendarOpen: false,
+    areaBreakdownOpen: false,
     calendarMonth: todayIso().slice(0, 7),
     countryBreakdownLimit: BREAKDOWN_PAGE_SIZE,
     yearBreakdownLimit: BREAKDOWN_PAGE_SIZE,
+    areaBreakdownLimit: BREAKDOWN_PAGE_SIZE,
     search: "",
     status: "all",
     sort: "newest",
@@ -643,6 +683,8 @@
     els.statsGrid = document.getElementById("statsGrid");
     els.calendarToggleButton = document.getElementById("calendarToggleButton");
     els.calendarPanel = document.getElementById("calendarPanel");
+    els.areaToggleButton = document.getElementById("areaToggleButton");
+    els.areaBreakdownPanel = document.getElementById("areaBreakdownPanel");
     els.calendarGrid = document.getElementById("calendarGrid");
     els.calendarMonthLabel = document.getElementById("calendarMonthLabel");
     els.calendarSummary = document.getElementById("calendarSummary");
@@ -653,6 +695,8 @@
     els.countryBreakdownMore = document.getElementById("countryBreakdownMore");
     els.yearBreakdown = document.getElementById("yearBreakdown");
     els.yearBreakdownMore = document.getElementById("yearBreakdownMore");
+    els.areaBreakdown = document.getElementById("areaBreakdown");
+    els.areaBreakdownMore = document.getElementById("areaBreakdownMore");
     els.tableBody = document.getElementById("staysTableBody");
     els.emptyState = document.getElementById("emptyState");
     els.searchInput = document.getElementById("searchInput");
@@ -771,12 +815,17 @@
       syncEngine.setAutomatic(els.automaticSyncInput.checked).catch((error) => showToast(error.message));
     });
     els.calendarToggleButton.addEventListener("click", toggleCalendar);
+    els.areaToggleButton.addEventListener("click", toggleAreaBreakdown);
     els.countryBreakdownMore.addEventListener("click", () => {
       state.countryBreakdownLimit += BREAKDOWN_PAGE_SIZE;
       renderBreakdowns();
     });
     els.yearBreakdownMore.addEventListener("click", () => {
       state.yearBreakdownLimit += BREAKDOWN_PAGE_SIZE;
+      renderBreakdowns();
+    });
+    els.areaBreakdownMore.addEventListener("click", () => {
+      state.areaBreakdownLimit += BREAKDOWN_PAGE_SIZE;
       renderBreakdowns();
     });
     els.prevMonthButton.addEventListener("click", () => moveCalendarMonth(-1));
@@ -1919,6 +1968,13 @@
       "No yearly totals yet.",
       state.yearBreakdownLimit
     );
+    renderBarList(
+      els.areaBreakdown,
+      els.areaBreakdownMore,
+      buildAreaTotals(state.stays),
+      "No area totals yet.",
+      state.areaBreakdownLimit
+    );
   }
 
   function renderBarList(container, moreButton, items, emptyMessage, displayLimit) {
@@ -1933,17 +1989,28 @@
       return;
     }
 
-    const max = Math.max(...items.map((item) => item.days));
+    const max = Math.max(1, ...items.map((item) => item.days));
     const fragment = document.createDocumentFragment();
 
-    items.slice(0, displayLimit).forEach((item) => {
+    items.slice(0, displayLimit).forEach((item, index) => {
+      const isArea = Boolean(item.areaName);
+      const tooltipId = isArea ? `area-members-${index}` : "";
       const row = document.createElement("div");
       row.className = "bar-row";
+      if (isArea) {
+        row.classList.add("bar-row-area");
+        row.tabIndex = 0;
+        row.setAttribute("role", "group");
+        row.setAttribute("aria-describedby", tooltipId);
+      }
 
       const header = document.createElement("div");
-      header.className = "bar-row-header";
+      header.className = isArea ? "bar-row-header bar-row-header-area" : "bar-row-header";
 
       const label = document.createElement("span");
+      if (isArea) {
+        label.className = "area-label";
+      }
       label.textContent = item.country ? countryLabel(item.country) : item.label;
 
       const value = document.createElement("span");
@@ -1954,16 +2021,49 @@
 
       const fill = document.createElement("div");
       fill.className = "bar-fill";
-      fill.style.setProperty("--bar-width", `${Math.max(4, (item.days / max) * 100)}%`);
+      fill.style.setProperty("--bar-width", item.days ? `${Math.max(4, (item.days / max) * 100)}%` : "0%");
 
       header.append(label, value);
       track.appendChild(fill);
       row.append(header, track);
+      if (isArea) {
+        row.appendChild(renderAreaTooltip(item, tooltipId));
+      }
       fragment.appendChild(row);
     });
 
     container.appendChild(fragment);
     moreButton.hidden = items.length <= displayLimit;
+  }
+
+  function renderAreaTooltip(item, id) {
+    const tooltip = document.createElement("div");
+    tooltip.className = "area-tooltip";
+    tooltip.id = id;
+    tooltip.setAttribute("role", "tooltip");
+
+    const heading = document.createElement("p");
+    heading.className = "area-tooltip-heading";
+    heading.textContent = `${item.emoji ? `${item.emoji} ` : ""}${item.areaName} members`;
+    tooltip.appendChild(heading);
+
+    const note = document.createElement("p");
+    note.className = "area-tooltip-note";
+    note.textContent = "Visited countries are highlighted.";
+    tooltip.appendChild(note);
+
+    const visitedCountries = new Set(item.visitedCountries.map(normalizeCountryKey));
+    const list = document.createElement("ul");
+    list.className = "area-member-list";
+    item.members.forEach((country) => {
+      const member = document.createElement("li");
+      const visited = visitedCountries.has(normalizeCountryKey(country));
+      member.className = visited ? "area-member area-member-visited" : "area-member";
+      member.textContent = countryLabel(country);
+      list.appendChild(member);
+    });
+    tooltip.appendChild(list);
+    return tooltip;
   }
 
   function moveCalendarMonth(offset) {
@@ -1979,8 +2079,23 @@
 
   function renderCalendarVisibility() {
     els.calendarPanel.hidden = !state.calendarOpen;
-    els.calendarToggleButton.textContent = state.calendarOpen ? "Hide calendar" : "Show calendar";
+    const label = state.calendarOpen ? "Hide calendar" : "Show calendar";
+    els.calendarToggleButton.setAttribute("aria-label", label);
+    els.calendarToggleButton.dataset.tooltip = label;
     els.calendarToggleButton.setAttribute("aria-expanded", String(state.calendarOpen));
+  }
+
+  function toggleAreaBreakdown() {
+    state.areaBreakdownOpen = !state.areaBreakdownOpen;
+    renderAreaBreakdownVisibility();
+  }
+
+  function renderAreaBreakdownVisibility() {
+    els.areaBreakdownPanel.hidden = !state.areaBreakdownOpen;
+    const label = state.areaBreakdownOpen ? "Hide area totals" : "Show area totals";
+    els.areaToggleButton.setAttribute("aria-label", label);
+    els.areaToggleButton.dataset.tooltip = label;
+    els.areaToggleButton.setAttribute("aria-expanded", String(state.areaBreakdownOpen));
   }
 
   function renderCalendar() {
@@ -2688,6 +2803,46 @@
       .sort((a, b) => Number(b.label) - Number(a.label));
   }
 
+  function buildAreaTotals(stays) {
+    const today = todayIso();
+    const todayOrdinal = dateOrdinal(today);
+    return TRAVEL_AREAS.map((area) => {
+      const areaDays = new Set();
+      const visitedCountries = new Map();
+      stays.forEach((stay) => {
+        if (!area.members.has(normalizeCountryKey(stay.country))) {
+          return;
+        }
+
+        const start = dateOrdinal(stay.startDate);
+        const end = dateOrdinal(stay.endDate || today);
+        if (end < start) {
+          return;
+        }
+
+        for (let ordinal = start; ordinal <= end; ordinal += 1) {
+          areaDays.add(ordinal);
+        }
+
+        if (start <= todayOrdinal) {
+          const country = canonicalPlaceName(stay.country);
+          visitedCountries.set(normalizeCountryKey(country), country);
+        }
+      });
+      const countryList = [...visitedCountries.values()].sort((a, b) => a.localeCompare(b));
+      const countryFlags = countryList.map(countryFlag).filter(Boolean).join(" ");
+      const countries = countryFlags ? ` (${countryFlags})` : "";
+      return {
+        areaName: area.name,
+        emoji: area.emoji,
+        members: area.memberNames,
+        visitedCountries: countryList,
+        label: `${area.emoji ? `${area.emoji} ` : ""}${area.name}${countries}`,
+        days: areaDays.size
+      };
+    }).sort((a, b) => b.days - a.days || a.label.localeCompare(b.label));
+  }
+
   function daysForStay(stay) {
     if (!stay.startDate) {
       return 0;
@@ -2840,6 +2995,16 @@
 
   function normalizeCountryKey(country) {
     return normalizeText(country).toLowerCase();
+  }
+
+  function makeTravelArea(name, countries, emoji = "") {
+    const memberNames = [...new Set(countries)];
+    return {
+      name,
+      emoji,
+      members: new Set(memberNames.map(normalizeCountryKey)),
+      memberNames
+    };
   }
 
   function canonicalPlaceName(country) {
