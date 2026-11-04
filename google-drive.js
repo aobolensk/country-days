@@ -103,7 +103,15 @@
               reject(error);
             }
           },
-          error_callback: () => reject(new Error("Google sign-in was closed or blocked. Try again."))
+          error_callback: (error) => {
+            let message = "Google sign-in failed. Try again.";
+            if (error?.type === "popup_failed_to_open") {
+              message = "Google sign-in popup was blocked. Allow pop-ups in Safari and try again.";
+            } else if (error?.type === "popup_closed") {
+              message = "Google sign-in was closed before access was granted. Try again.";
+            }
+            reject(new Error(message));
+          }
         });
         client.requestAccessToken({
           prompt: hint.accountId ? "" : "select_account", login_hint: hint.email || ""
@@ -123,19 +131,41 @@
         this.token = "";
         throw new Error("Reconnect Google Drive to sync. Local changes remain saved.");
       }
-      const response = await fetch(url, {
-        ...options, cache: "no-store", redirect: "error",
-        signal: AbortSignal.any([this.controller.signal, AbortSignal.timeout(30000)]),
-        headers: { ...options.headers, Authorization: `Bearer ${this.token}` }
-      });
-      if (!response.ok) {
+      const requestController = new AbortController();
+      const providerSignal = this.controller.signal;
+      const abortRequest = () => requestController.abort();
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        requestController.abort();
+      }, 30000);
+      providerSignal.addEventListener("abort", abortRequest, { once: true });
+
+      try {
+        const response = await fetch(url, {
+          ...options, cache: "no-store", redirect: "error",
+          signal: requestController.signal,
+          headers: { ...options.headers, Authorization: `Bearer ${this.token}` }
+        });
         if (response.status === 401) {
           this.token = "";
           throw new Error("Reconnect Google Drive to sync. Local changes remain saved.");
         }
-        throw new Error(`Google Drive could not sync (${response.status}). Local changes remain saved. Try again when Drive access is available.`);
+        if (!response.ok) {
+          throw new Error(`Google Drive could not sync (${response.status}). Local changes remain saved. Try again when Drive access is available.`);
+        }
+        return await response.json();
+      } catch (error) {
+        if (timedOut) {
+          const timeoutError = new Error("Google Drive request timed out.");
+          timeoutError.name = "TimeoutError";
+          throw timeoutError;
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+        providerSignal.removeEventListener("abort", abortRequest);
       }
-      return response.json();
     }
 
     async listFiles() {
