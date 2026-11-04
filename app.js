@@ -603,7 +603,6 @@
   const state = {
     stays: [],
     calendarOpen: false,
-    areaBreakdownOpen: false,
     selectedYear: "",
     calendarMonth: todayIso().slice(0, 7),
     countryBreakdownLimit: BREAKDOWN_PAGE_SIZE,
@@ -689,6 +688,10 @@
     els.calendarPanel = document.getElementById("calendarPanel");
     els.areaToggleButton = document.getElementById("areaToggleButton");
     els.areaBreakdownPanel = document.getElementById("areaBreakdownPanel");
+    els.countryToggleButton = document.getElementById("countryToggleButton");
+    els.countryBreakdownPanel = document.getElementById("countryBreakdownPanel");
+    els.yearToggleButton = document.getElementById("yearToggleButton");
+    els.yearBreakdownPanel = document.getElementById("yearBreakdownPanel");
     els.calendarGrid = document.getElementById("calendarGrid");
     els.calendarMonthLabel = document.getElementById("calendarMonthLabel");
     els.calendarSummary = document.getElementById("calendarSummary");
@@ -826,7 +829,15 @@
       syncEngine.setAutomatic(els.automaticSyncInput.checked).catch((error) => showToast(error.message));
     });
     els.calendarToggleButton.addEventListener("click", toggleCalendar);
-    els.areaToggleButton.addEventListener("click", toggleAreaBreakdown);
+    els.areaToggleButton.addEventListener("click", () => {
+      toggleBreakdownPanel(els.areaBreakdownPanel, els.areaToggleButton, "area totals");
+    });
+    els.countryToggleButton.addEventListener("click", () => {
+      toggleBreakdownPanel(els.countryBreakdownPanel, els.countryToggleButton, "country totals");
+    });
+    els.yearToggleButton.addEventListener("click", () => {
+      toggleBreakdownPanel(els.yearBreakdownPanel, els.yearToggleButton, "yearly days");
+    });
     els.yearFilter.addEventListener("change", (event) => {
       state.selectedYear = event.target.value;
       state.calendarMonth = state.selectedYear
@@ -2133,17 +2144,13 @@
     els.calendarToggleButton.setAttribute("aria-expanded", String(state.calendarOpen));
   }
 
-  function toggleAreaBreakdown() {
-    state.areaBreakdownOpen = !state.areaBreakdownOpen;
-    renderAreaBreakdownVisibility();
-  }
-
-  function renderAreaBreakdownVisibility() {
-    els.areaBreakdownPanel.hidden = !state.areaBreakdownOpen;
-    const label = state.areaBreakdownOpen ? "Hide area totals" : "Show area totals";
-    els.areaToggleButton.setAttribute("aria-label", label);
-    els.areaToggleButton.dataset.tooltip = label;
-    els.areaToggleButton.setAttribute("aria-expanded", String(state.areaBreakdownOpen));
+  function toggleBreakdownPanel(panel, button, name) {
+    const open = panel.hidden;
+    panel.hidden = !open;
+    const label = `${open ? "Hide" : "Show"} ${name}`;
+    button.setAttribute("aria-label", label);
+    button.dataset.tooltip = label;
+    button.setAttribute("aria-expanded", String(open));
   }
 
   function renderCalendar() {

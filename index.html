@@ -133,6 +133,8 @@
             </label>
             <button class="button secondary icon-toggle" id="calendarToggleButton" type="button" aria-label="Show calendar" data-tooltip="Show calendar" aria-expanded="false" aria-controls="calendarPanel">📅</button>
             <button class="button secondary icon-toggle" id="areaToggleButton" type="button" aria-label="Show area totals" data-tooltip="Show area totals" aria-expanded="false" aria-controls="areaBreakdownPanel">🌐</button>
+            <button class="button secondary icon-toggle" id="countryToggleButton" type="button" aria-label="Hide country totals" data-tooltip="Hide country totals" aria-expanded="true" aria-controls="countryBreakdownPanel">📍</button>
+            <button class="button secondary icon-toggle" id="yearToggleButton" type="button" aria-label="Hide yearly days" data-tooltip="Hide yearly days" aria-expanded="true" aria-controls="yearBreakdownPanel">📊</button>
           </div>
 
           <section class="calendar-panel" id="calendarPanel" aria-labelledby="calendarTitle" hidden>
@@ -173,22 +175,22 @@
           </section>
 
           <section class="split-grid">
-            <div class="analytics-panel">
+            <div class="analytics-panel" id="countryBreakdownPanel" aria-labelledby="countryBreakdownTitle">
               <div class="panel-header">
                 <div>
                   <p class="eyebrow">Countries</p>
-                  <h2>Days by country</h2>
+                  <h2 id="countryBreakdownTitle">Days by country</h2>
                 </div>
               </div>
               <div class="bar-list" id="countryBreakdown"></div>
               <button class="button secondary compact breakdown-more" id="countryBreakdownMore" type="button" aria-controls="countryBreakdown" hidden>Show more</button>
             </div>
 
-            <div class="analytics-panel">
+            <div class="analytics-panel" id="yearBreakdownPanel" aria-labelledby="yearBreakdownTitle">
               <div class="panel-header">
                 <div>
                   <p class="eyebrow">Timeline</p>
-                  <h2>Yearly days</h2>
+                  <h2 id="yearBreakdownTitle">Yearly days</h2>
                 </div>
               </div>
               <div class="bar-list" id="yearBreakdown"></div>
