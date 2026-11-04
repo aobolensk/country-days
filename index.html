@@ -78,12 +78,13 @@
       </main>
 
       <main class="app-layout" id="dashboardPage">
-        <aside class="entry-panel" aria-labelledby="formTitle">
+        <aside class="entry-panel" id="entryPanel" aria-labelledby="formTitle">
           <div class="panel-header">
-            <div>
+            <div class="entry-panel-heading">
               <p class="eyebrow">Stay input</p>
               <h2 id="formTitle">Add a stay</h2>
             </div>
+            <button class="button secondary compact entry-form-toggle" id="entryFormToggle" type="button" aria-expanded="false" aria-controls="stayForm">Add a stay</button>
             <button class="button ghost compact" id="cancelEditButton" type="button" hidden>Cancel</button>
           </div>
 

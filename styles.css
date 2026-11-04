@@ -299,6 +299,10 @@ button:disabled {
   width: 100%;
 }
 
+.entry-form-toggle {
+  display: none;
+}
+
 .app-layout {
   display: grid;
   grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
@@ -1216,7 +1220,7 @@ select {
 
 .stay-card {
   display: grid;
-  grid-template-columns: 54px minmax(0, 1fr) auto;
+  grid-template-columns: 54px minmax(0, 1fr);
   gap: 14px;
   align-items: center;
   min-width: 0;
@@ -1359,7 +1363,31 @@ select {
 }
 
 .stay-actions {
-  justify-self: end;
+  flex: 0 0 auto;
+}
+
+.button.compact.stay-action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+}
+
+.stay-action-icon {
+  display: block;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .status-pill {
@@ -1464,6 +1492,33 @@ select {
     position: static;
   }
 
+  .entry-panel:not(.is-open) {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .entry-panel:not(.is-open) .panel-header {
+    margin-bottom: 0;
+  }
+
+  .entry-panel:not(.is-open) .entry-panel-heading,
+  .entry-panel:not(.is-open) form {
+    display: none;
+  }
+
+  .entry-form-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .entry-panel:not(.is-open) .entry-form-toggle {
+    width: 100%;
+  }
+
   .table-heading {
     align-items: stretch;
   }
@@ -1478,6 +1533,45 @@ select {
 }
 
 @media (max-width: 620px) {
+  .app-shell {
+    padding: 12px;
+  }
+
+  .topbar {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .topbar h1 {
+    font-size: clamp(2rem, 9vw, 2.6rem);
+  }
+
+  .topbar-actions {
+    gap: 8px;
+  }
+
+  .topbar-actions .button {
+    min-width: 0;
+    flex: 1 1 0;
+    padding: 0 8px;
+    font-size: 0.8rem;
+  }
+
+  .page-nav {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .page-nav .button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .app-layout,
+  .dashboard {
+    gap: 12px;
+  }
+
   .map-heading {
     grid-template-columns: 1fr;
     align-items: stretch;
@@ -1491,9 +1585,35 @@ select {
     min-height: 0;
   }
 
-  .stats-grid,
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .stat-card {
+    min-height: 96px;
+    padding: 12px;
+  }
+
+  .stat-card .label {
+    margin-bottom: 8px;
+    font-size: 0.74rem;
+    line-height: 1.25;
+  }
+
+  .stat-card .value {
+    font-size: clamp(1.35rem, 6vw, 1.8rem);
+  }
+
   .date-grid {
     grid-template-columns: 1fr;
+  }
+
+  .analytics-panel,
+  .calendar-panel,
+  .table-panel,
+  .map-panel {
+    padding: 12px;
   }
 
   .calendar-heading {
@@ -1502,8 +1622,18 @@ select {
   }
 
   .calendar-toggle-row {
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px 44px;
+  }
+
+  .year-filter {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .year-filter select {
+    width: 100%;
+    min-width: 0;
   }
 
   .calendar-controls {
@@ -1551,8 +1681,12 @@ select {
 
   .table-tools {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
+  }
+
+  .table-tools .tool-field:first-child {
+    grid-column: 1 / -1;
   }
 
   .tool-field,
@@ -1560,8 +1694,12 @@ select {
     width: 100%;
   }
 
+  .tool-field {
+    min-width: 0;
+  }
+
   .stay-card {
-    grid-template-columns: 46px minmax(0, 1fr);
+    grid-template-columns: 40px minmax(0, 1fr);
     align-items: start;
   }
 
@@ -1579,16 +1717,10 @@ select {
     height: 40px;
   }
 
-  .stay-actions {
-    grid-column: 2;
-    justify-self: stretch;
-  }
-
-  .row-actions {
-    align-items: stretch;
-  }
-
-  .row-actions .button {
-    flex: 1 1 auto;
+  .button.compact.stay-action-button {
+    flex-basis: 40px;
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
   }
 }

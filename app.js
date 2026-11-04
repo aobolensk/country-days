@@ -671,6 +671,8 @@
 
   function cacheElements() {
     els.form = document.getElementById("stayForm");
+    els.entryPanel = document.getElementById("entryPanel");
+    els.entryFormToggle = document.getElementById("entryFormToggle");
     els.stayId = document.getElementById("stayId");
     els.countryInput = document.getElementById("countryInput");
     els.startDateInput = document.getElementById("startDateInput");
@@ -790,6 +792,13 @@
       els.mapCanvas.addEventListener(type, () => renderMapDetails(state.mapCountry));
     });
     els.form.addEventListener("submit", handleSubmit);
+    els.entryFormToggle.addEventListener("click", () => {
+      const open = !els.entryPanel.classList.contains("is-open");
+      setEntryFormOpen(open);
+      if (open) {
+        els.countryInput.focus();
+      }
+    });
     els.cancelEditButton.addEventListener("click", resetForm);
     els.countryInput.addEventListener("input", renderCountrySuggestions);
     els.countryInput.addEventListener("focus", renderCountrySuggestions);
@@ -1161,6 +1170,16 @@
     els.submitButton.textContent = "Add stay";
     els.cancelEditButton.hidden = true;
     setFormMessage("");
+    setEntryFormOpen(false);
+  }
+
+  function setEntryFormOpen(open) {
+    els.entryPanel.classList.toggle("is-open", open);
+    els.entryFormToggle.setAttribute("aria-expanded", String(open));
+    els.entryFormToggle.textContent = open ? "Hide form" : "Add a stay";
+    if (!open && window.matchMedia("(max-width: 860px)").matches) {
+      els.entryFormToggle.focus();
+    }
   }
 
   function suggestNextStartDate(record) {
@@ -2363,7 +2382,8 @@
     top.className = "stay-topline";
 
     const country = document.createElement("h3");
-    country.textContent = canonicalPlaceName(stay.country);
+    const placeName = canonicalPlaceName(stay.country);
+    country.textContent = placeName;
 
     const pill = document.createElement("span");
     pill.className = `status-pill status-${status}`;
@@ -2413,21 +2433,27 @@
     actionWrap.className = "row-actions";
 
     const edit = document.createElement("button");
-    edit.className = "button ghost compact";
+    edit.className = "button ghost compact stay-action-button";
     edit.type = "button";
-    edit.textContent = "Edit";
+    const editLabel = `Edit ${placeName} stay`;
+    edit.setAttribute("aria-label", editLabel);
+    edit.title = editLabel;
+    edit.innerHTML = '<svg class="stay-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1L19 8.5 15.5 5 5 15.5 4 20zm11.5-15 3.5 3.5"/></svg>';
     edit.addEventListener("click", () => editStay(stay));
 
     const remove = document.createElement("button");
-    remove.className = "button danger compact";
+    remove.className = "button danger compact stay-action-button";
     remove.type = "button";
-    remove.textContent = "Delete";
+    const deleteLabel = `Delete ${placeName} stay`;
+    remove.setAttribute("aria-label", deleteLabel);
+    remove.title = deleteLabel;
+    remove.innerHTML = '<svg class="stay-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>';
     remove.addEventListener("click", () => deleteStay(stay));
 
     actionWrap.append(edit, remove);
     actions.appendChild(actionWrap);
 
-    top.append(country, pill);
+    top.append(country, pill, actions);
     route.append(start, line, end);
     main.append(top, route);
     if (stay.notes) {
@@ -2436,7 +2462,7 @@
     if (stay.notes) {
       main.appendChild(meta);
     }
-    row.append(marker, main, actions);
+    row.append(marker, main);
     return row;
   }
 
@@ -2561,6 +2587,7 @@
     els.formTitle.textContent = "Edit stay";
     els.submitButton.textContent = "Save changes";
     els.cancelEditButton.hidden = false;
+    setEntryFormOpen(true);
     els.countryInput.focus();
   }
 
