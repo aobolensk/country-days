@@ -1115,9 +1115,9 @@
     return "";
   }
 
-  function findOverlapWarnings(record, currentId) {
-    return state.stays
-      .filter((stay) => stay.id !== currentId)
+  function findOverlapWarnings(record, currentId, stays = state.stays) {
+    return stays
+      .filter((stay) => currentId === null || stay.id !== currentId)
       .map((stay) => ({
         stay,
         days: overlappingDays(record, stay)
@@ -1151,7 +1151,11 @@
     return record.endDate ? dateOrdinal(record.endDate) : Number.POSITIVE_INFINITY;
   }
 
-  function buildOverlapWarningMessage(overlaps) {
+  function buildOverlapWarningMessage(
+    overlaps,
+    introduction = "This stay overlaps an existing stay by more than one day, so totals may double count days.",
+    action = "Save"
+  ) {
     const shown = overlaps.slice(0, 3).map((overlap) => {
       const duration = Number.isFinite(overlap.days)
         ? `${formatNumber(overlap.days)} day${overlap.days === 1 ? "" : "s"} overlap`
@@ -1163,11 +1167,11 @@
       : "";
 
     return [
-      "This stay overlaps an existing stay by more than one day, so totals may double-count days.",
+      introduction,
       "",
       shown.join("\n") + extra,
       "",
-      "Save anyway?"
+      `${action} anyway?`
     ].join("\n");
   }
 
@@ -2650,6 +2654,8 @@
       const existingKeys = new Set(state.stays.map(recordKey));
       const now = new Date().toISOString();
       const records = [];
+      const overlapCandidates = [...state.stays];
+      const overlaps = [];
       let duplicates = 0;
 
       result.records.forEach((record) => {
@@ -2659,12 +2665,23 @@
           return;
         }
         existingKeys.add(key);
+        overlaps.push(...findOverlapWarnings(record, null, overlapCandidates));
+        overlapCandidates.push(record);
         records.push({
           ...record,
           createdAt: now,
           updatedAt: now
         });
       });
+
+      if (overlaps.length && !window.confirm(buildOverlapWarningMessage(
+        overlaps,
+        "Imported stays overlap a stay by more than one day, so totals may double count days.",
+        "Import"
+      ))) {
+        showToast("Import canceled.");
+        return;
+      }
 
       if (records.length) {
         await syncEngine.importStays(records);
