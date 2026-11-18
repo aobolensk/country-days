@@ -2449,7 +2449,7 @@
     const editLabel = `Edit ${placeName} stay`;
     edit.setAttribute("aria-label", editLabel);
     edit.title = editLabel;
-    edit.innerHTML = '<svg class="stay-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1L19 8.5 15.5 5 5 15.5 4 20zm11.5-15 3.5 3.5"/></svg>';
+    edit.appendChild(createActionIcon("m4 20 4.5-1L19 8.5 15.5 5 5 15.5 4 20zm11.5-15 3.5 3.5"));
     edit.addEventListener("click", () => editStay(stay));
 
     const remove = document.createElement("button");
@@ -2458,7 +2458,7 @@
     const deleteLabel = `Delete ${placeName} stay`;
     remove.setAttribute("aria-label", deleteLabel);
     remove.title = deleteLabel;
-    remove.innerHTML = '<svg class="stay-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>';
+    remove.appendChild(createActionIcon("M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"));
     remove.addEventListener("click", () => deleteStay(stay));
 
     actionWrap.append(edit, remove);
@@ -2469,12 +2469,21 @@
     main.append(top, route);
     if (stay.notes) {
       meta.appendChild(notes);
-    }
-    if (stay.notes) {
       main.appendChild(meta);
     }
     row.append(marker, main);
     return row;
+  }
+
+  function createActionIcon(pathData) {
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("class", "stay-action-icon");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", pathData);
+    icon.appendChild(path);
+    return icon;
   }
 
   function getStayProgress(stay, status) {
