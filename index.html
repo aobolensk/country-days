@@ -13,6 +13,7 @@
     <script defer src="sync.js"></script>
     <script defer src="google-drive.js"></script>
     <script defer src="app.js"></script>
+    <script defer src="build-info.js"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -287,6 +288,11 @@
         </section>
       </main>
     </div>
+
+    <footer class="build-info" aria-label="Build version">
+      <span>Version</span>
+      <a id="buildCommit">development</a>
+    </footer>
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   </body>

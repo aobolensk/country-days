@@ -6,6 +6,7 @@ const CORE_ASSETS = [
   "./app.js",
   "./sync.js",
   "./google-drive.js",
+  "./build-info.js",
   "./manifest.webmanifest",
   "./icons/icon.svg"
 ];

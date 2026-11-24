@@ -63,6 +63,27 @@ button:disabled {
   padding: 22px;
 }
 
+.build-info {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 22px 18px;
+  color: var(--faint);
+  font-size: 0.75rem;
+}
+
+.build-info a {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-decoration: none;
+}
+
+.build-info a[href]:hover,
+.build-info a[href]:focus-visible {
+  color: var(--primary-strong);
+  text-decoration: underline;
+}
+
 .topbar {
   display: flex;
   align-items: center;

@@ -28,7 +28,8 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         run: |
           mkdir _site
-          cp styles.css app.js sync.js google-drive.js service-worker.js manifest.webmanifest _site/
+          cp styles.css app.js sync.js google-drive.js build-info.js service-worker.js manifest.webmanifest _site/
+          sed -i "s/const commit = \"development\";/const commit = \"${GITHUB_SHA}\";/" _site/build-info.js
           cp -R icons _site/icons
           : "${GOOGLE_CLIENT_ID:?Set the GOOGLE_CLIENT_ID repository secret before deploying}"
           envsubst '$GOOGLE_CLIENT_ID' < index.html > _site/index.html
