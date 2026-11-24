@@ -1557,6 +1557,26 @@ select {
     font-size: 0.8rem;
   }
 
+  .stay-topline {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "country actions" "status status";
+    row-gap: 8px;
+  }
+
+  .stay-topline > h3 {
+    grid-area: country;
+  }
+
+  .stay-topline > .status-pill {
+    grid-area: status;
+    justify-self: center;
+  }
+
+  .stay-topline > .stay-actions {
+    grid-area: actions;
+  }
+
   .page-nav {
     gap: 8px;
     margin-bottom: 12px;
