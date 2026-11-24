@@ -2048,7 +2048,9 @@
       return;
     }
 
-    const max = Math.max(1, ...items.map((item) => item.days));
+    const max = state.selectedYear
+      ? daysInYear(state.selectedYear)
+      : Math.max(1, ...items.map((item) => item.days));
     const fragment = document.createDocumentFragment();
 
     items.slice(0, displayLimit).forEach((item, index) => {
@@ -2544,6 +2546,10 @@
       }
     });
     return [...years].sort((a, b) => Number(b) - Number(a));
+  }
+
+  function daysInYear(year) {
+    return dateOrdinal(`${year}-12-31`) - dateOrdinal(`${year}-01-01`) + 1;
   }
 
   function getStaysInSelectedYear() {
