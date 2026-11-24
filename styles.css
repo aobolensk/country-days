@@ -1302,7 +1302,12 @@ select {
 }
 
 .stay-topline {
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.stay-topline > .stay-actions {
+  justify-self: end;
 }
 
 .stay-card h3 {
