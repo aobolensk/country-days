@@ -50,7 +50,11 @@
           const fail = () => {
             clearTimeout(timer);
             script.remove();
-            reject(new Error("Google sign-in could not load. Check your connection and retry."));
+            reject(new Error(
+              "Google sign-in could not load. A content blocker or network filter may be blocking it. "
+              + "Allow Google sign-in in your browser settings, then tap Retry. "
+              + "If it still fails, check your connection."
+            ));
           };
           const timer = setTimeout(fail, 15000);
           script.onload = () => { clearTimeout(timer); resolve(); };
